@@ -666,13 +666,13 @@ public class MoveRawContactsTest extends BaseContactsProvider2Test {
 
         // verify the unique raw contact has been moved from the old -> new account
         assertMovedRawContact(sourceRawContactId, mDest, false);
-        // all data rows should have moved with the source
+        // all data rows should have moved with the source (including the custom mimetype)
         assertDataExists(sourceRawContactId, NON_PORTABLE_MIMETYPE, "foo");
         assertDataExists(sourceRawContactId, StructuredName.CONTENT_ITEM_TYPE, "firstA lastA");
 
         // verify the original near duplicate contact remains unchanged
         assertMovedRawContact(destRawContactId, mDest, false);
-        // the non portable data should still not exist on the destination account
+        // the non portable data should still not exist on the old destination account contact
         assertDataDoesNotExist(destRawContactId, NON_PORTABLE_MIMETYPE, "foo");
         // the existing data row in the destination account should be unaffected
         assertDataExists(destRawContactId, StructuredName.CONTENT_ITEM_TYPE, "firstA lastA");
@@ -725,10 +725,9 @@ public class MoveRawContactsTest extends BaseContactsProvider2Test {
     }
 
     /**
-     * Moves a contact between source and dest where both accounts have the same account type.
-     * The contact is unique because of a non-portable data row. Because the account types match,
-     * the non-portable data row will be considered while matching the contacts and the contact will
-     * be treated as unique.
+     * Move a contact between source and dest where both account have the same account types, but
+     * the delete non-common data rows flag is disabled (so we were never going to delete custom
+     * data rows).
      */
     @Test
     @EnableFlags({Flags.FLAG_CP2_ACCOUNT_MOVE_SYNC_STUB_FLAG})
@@ -772,9 +771,9 @@ public class MoveRawContactsTest extends BaseContactsProvider2Test {
 
     /**
      * Moves a contact between source and dest where both accounts have the same account type.
-     * The contact is unique because of a non-portable data row. Because the account types match,
-     * the non-portable data row will be considered while matching the contacts and the contact will
-     * be treated as a duplicate.
+     * The contact is a duplicate and includes non-portable data rows. Because the account types
+     * match, the non-portable data row will be considered while matching the contacts and the
+     * contact will be treated as a duplicate.
      */
     @Test
     @EnableFlags({Flags.FLAG_CP2_ACCOUNT_MOVE_DELETE_NON_COMMON_DATA_ROWS_FLAG})
@@ -812,10 +811,8 @@ public class MoveRawContactsTest extends BaseContactsProvider2Test {
     }
 
     /**
-     * Moves a contact between source and dest where both accounts have the same account type.
-     * The contact is unique because of a non-portable data row. Because the account types match,
-     * the non-portable data row will be considered while matching the contacts and the contact will
-     * be treated as a duplicate.
+     * Moves a contact between source and dest where both accounts have the same account type, but
+     * the delete non-common data rows flag is disabled (so we never delete custom data rows).
      */
     @Test
     @DisableFlags({Flags.FLAG_DISABLE_CP2_ACCOUNT_MOVE_FLAG, Flags.FLAG_CP2_ACCOUNT_MOVE_DELETE_NON_COMMON_DATA_ROWS_FLAG})
