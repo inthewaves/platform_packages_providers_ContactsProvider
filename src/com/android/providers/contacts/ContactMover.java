@@ -419,10 +419,11 @@ public class ContactMover {
             AccountWithDataSet destAccount, boolean insertSyncStubs) {
         // If we are moving between account types or data sets, delete non-portable data rows
         // from the source
-        if (cp2AccountMoveDeleteNonCommonDataRowsFlag()
-                && (!isAccountTypeMatch(sourceAccount, destAccount)
-                || !isDataSetMatch(sourceAccount, destAccount))) {
-            mDbHelper.deleteNonCommonDataRows(sourceAccount);
+        if (cp2AccountMoveDeleteNonCommonDataRowsFlag()) {
+            if (!isAccountTypeMatch(sourceAccount, destAccount)
+                    || !isDataSetMatch(sourceAccount, destAccount)) {
+                mDbHelper.deleteNonCommonDataRows(sourceAccount);
+            }
         }
 
         // Move any groups and group memberships from the source to destination account
