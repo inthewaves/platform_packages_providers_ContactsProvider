@@ -5,6 +5,7 @@ import android.annotation.Nullable;
 import android.content.ContentProvider;
 import android.content.IContentProvider;
 import android.content.pm.GosPackageState;
+import android.content.pm.GosPackageStateFlag;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.ext.cscopes.ContactScopesApi;
@@ -62,16 +63,15 @@ public class ScopedContactsProvider extends RedirectedContentProvider {
         }
     }
 
-    private static void checkAccess(@Nullable GosPackageState ps) {
-        boolean canAccess = ps != null && ps.hasFlag(GosPackageState.FLAG_CONTACT_SCOPES_ENABLED);
+    private static void checkAccess(GosPackageState ps) {
+        boolean canAccess = ps.hasFlag(GosPackageStateFlag.CONTACT_SCOPES_ENABLED);
         if (!canAccess) {
             throw new SecurityException();
         }
     }
 
-    @Nullable
     private GosPackageState getCallerGosPackageState() {
-        return GosPackageState.get(Objects.requireNonNull(getCallingPackage()));
+        return GosPackageState.get(Objects.requireNonNull(getCallingPackage()), requireContext().getUser());
     }
 
     @Override
