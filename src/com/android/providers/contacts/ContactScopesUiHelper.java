@@ -27,7 +27,7 @@ class ContactScopesUiHelper {
 
     static Bundle getAppScopesViewModel(ScopedContactsProvider scp, String packageName) {
         ContactScopesStorage scopes = ContactScopesStorage
-                .deserialize(GosPackageState.getOrDefault(packageName));
+                .deserialize(GosPackageState.get(packageName, scp.requireContext().getUser()));
 
         var result = new Bundle();
 
