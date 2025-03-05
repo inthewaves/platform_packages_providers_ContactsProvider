@@ -2695,7 +2695,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                                     LogUtils.MethodCall.MOVE_LOCAL_CONTACTS_TO_DEFAULT_ACCOUNT)
                             : null;
             try {
-                if (newDefaultAccountApiEnabled() || disableCp2AccountMoveFlag()) {
+                if (!newDefaultAccountApiEnabled() || disableCp2AccountMoveFlag()) {
                     throw new UnsupportedOperationException(
                             "Move local contacts to cloud default account is not supported");
                 }
