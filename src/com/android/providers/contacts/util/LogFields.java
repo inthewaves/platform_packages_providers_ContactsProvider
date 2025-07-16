@@ -17,6 +17,9 @@
 package com.android.providers.contacts.util;
 
 import android.net.Uri;
+import android.provider.ContactsContract;
+
+import com.google.common.base.Strings;
 
 public final class LogFields {
 
@@ -40,9 +43,22 @@ public final class LogFields {
 
     private final int mUid;
 
+    private final String mAccountType;
+
+    private boolean mIsSystemAccount;
+
+    private boolean mIsLocalAccount;
+
+    private ContactsContract.SimAccount mSimAccount;
+
+    private final int mDefaultAccountState;
+
+
     public LogFields(
             int apiType, int uriType, int taskType, boolean callerIsSyncAdapter, long startNanos,
-            Exception exception, Uri resultUri, int resultCount, int methodCalled, int uid
+            Exception exception, Uri resultUri, int resultCount, int methodCalled, int uid,
+            String accountType, boolean isSystemAccount, boolean isLocalAccount,
+            ContactsContract.SimAccount simAccount, int defaultAccountState
     ) {
         mApiType = apiType;
         mUriType = uriType;
@@ -54,6 +70,11 @@ public final class LogFields {
         mResultCount = resultCount;
         mMethodCalled = methodCalled;
         mUid = uid;
+        mAccountType = accountType;
+        mIsSystemAccount = isSystemAccount;
+        mIsLocalAccount = isLocalAccount;
+        mSimAccount = simAccount;
+        mDefaultAccountState = defaultAccountState;
     }
 
     public int getApiType() {
@@ -96,6 +117,34 @@ public final class LogFields {
         return mUid;
     }
 
+    public String getAccountType() {
+        return Strings.nullToEmpty(mAccountType);
+    }
+
+    public boolean isSystemAccount() {
+        return mIsSystemAccount;
+    }
+
+    public boolean isLocalAccount() {
+        return mIsLocalAccount;
+    }
+
+    public boolean isSimAccount() {
+        return mSimAccount != null;
+    }
+
+    public int getSimAccountEf() {
+        if (mSimAccount != null) {
+            return mSimAccount.getEfType();
+        } else {
+            return ContactsContract.SimAccount.UNKNOWN_EF_TYPE;
+        }
+    }
+
+    public int getDefaultAccountState() {
+        return mDefaultAccountState;
+    }
+
     public static final class Builder {
         private int mApiType;
         private int mUriType;
@@ -107,6 +156,11 @@ public final class LogFields {
         private int mResultCount;
         private int mMethodCalled;
         private int mUid;
+        private String mAccountType;
+        private boolean mIsSystemAccount;
+        private boolean mIsLocalAccount;
+        private ContactsContract.SimAccount mSimAccount;
+        private int mDefaultAccountState;
 
         private Builder() {
         }
@@ -171,6 +225,31 @@ public final class LogFields {
             return this;
         }
 
+        public Builder setAccountType(String accountType) {
+            mAccountType = accountType;
+            return this;
+        }
+
+        public Builder setSystemAccount(boolean isSystemAccount) {
+            mIsSystemAccount = isSystemAccount;
+            return this;
+        }
+
+        public Builder setLocalAccount(boolean isLocalAccount) {
+            mIsLocalAccount = isLocalAccount;
+            return this;
+        }
+
+        public Builder setSimAccount(ContactsContract.SimAccount simAccount) {
+            mSimAccount = simAccount;
+            return this;
+        }
+
+        public Builder setDefaultAccountState(int defaultAccountState) {
+            mDefaultAccountState = defaultAccountState;
+            return this;
+        }
+
         public LogFields build() {
             return new LogFields(
                     mApiType,
@@ -182,7 +261,13 @@ public final class LogFields {
                     mResultUri,
                     mResultCount,
                     mMethodCalled,
-                    mUid);
+                    mUid,
+                    mAccountType,
+                    mIsSystemAccount,
+                    mIsLocalAccount,
+                    mSimAccount,
+                    mDefaultAccountState);
         }
+
     }
 }

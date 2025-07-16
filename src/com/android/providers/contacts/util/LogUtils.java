@@ -20,8 +20,11 @@ import static com.android.providers.contacts.flags.Flags.logCallMethod;
 import static com.android.providers.contacts.flags.Flags.logContactSaveInvalidAccountError;
 
 import android.os.SystemClock;
+import android.provider.ContactsContract;
 
 import com.android.providers.contacts.AccountResolver;
+
+import com.google.common.annotations.VisibleForTesting;
 
 public class LogUtils {
 
@@ -80,8 +83,30 @@ public class LogUtils {
                 ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED__CALLER_TYPE__CALLER_IS_NOT_SYNC_ADAPTER;
     }
 
+    public interface AccountDataOrigin {
+        int UNSPECIFIED =
+                ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED__ACCOUNT_DATA_ORIGIN__ACCOUNT_DATA_ORIGIN_UNSPECIFIED;
+        int LOCAL =
+                ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED__ACCOUNT_DATA_ORIGIN__ACCOUNT_DATA_ORIGIN_LOCAL;
+        int CLOUD =
+                ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED__ACCOUNT_DATA_ORIGIN__ACCOUNT_DATA_ORIGIN_CLOUD;
+        int SIM_ADN =
+                ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED__ACCOUNT_DATA_ORIGIN__ACCOUNT_DATA_ORIGIN_SIM_ADN;
+        int SIM_FDN =
+                ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED__ACCOUNT_DATA_ORIGIN__ACCOUNT_DATA_ORIGIN_SIM_FDN;
+        int SIM_SDN =
+                ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED__ACCOUNT_DATA_ORIGIN__ACCOUNT_DATA_ORIGIN_SIM_SDN;
+    }
+
+    private static ContactsProviderStatsLog sLogWriter = new ContactsProviderStatsLog();
+
+    @VisibleForTesting
+    public static void setContactsProviderStatsLogForTesting(ContactsProviderStatsLog logWriter) {
+        sLogWriter = logWriter;
+    }
+
     public static void log(LogFields logFields) {
-        ContactsProviderStatsLog.write(
+        sLogWriter.write(
                 ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED,
                 logFields.getApiType(),
                 logFields.getUriType(),
@@ -92,10 +117,10 @@ public class LogUtils {
                 logFields.getTaskType(),
                 logCallMethod() ? logFields.getMethodCalled() : 0,
                 logFields.getUid(),
-                /*accountType=*/"",
-                ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED__ACCOUNT_DATA_ORIGIN__ACCOUNT_DATA_ORIGIN_UNSPECIFIED,
-                /*defaultAccountState*/0
-                );
+                logFields.getAccountType(),
+                getAccountDataOrigin(logFields),
+                logFields.getDefaultAccountState()
+        );
     }
 
     private static int getCallerType(boolean callerIsSyncAdapter) {
@@ -118,6 +143,23 @@ public class LogUtils {
             return ResultType.UNSUPPORTED_OPERATION;
         } else {
             return ResultType.FAIL;
+        }
+    }
+
+    private static int getAccountDataOrigin(LogFields logFields) {
+        if (logFields.isSystemAccount()) {
+            return AccountDataOrigin.CLOUD;
+        } else if (logFields.isLocalAccount()) {
+            return AccountDataOrigin.LOCAL;
+        } else if (logFields.isSimAccount()) {
+            return switch (logFields.getSimAccountEf()) {
+                case ContactsContract.SimAccount.ADN_EF_TYPE -> AccountDataOrigin.SIM_ADN;
+                case ContactsContract.SimAccount.FDN_EF_TYPE -> AccountDataOrigin.SIM_FDN;
+                case ContactsContract.SimAccount.SDN_EF_TYPE -> AccountDataOrigin.SIM_SDN;
+                default -> AccountDataOrigin.UNSPECIFIED;
+            };
+        } else {
+            return AccountDataOrigin.UNSPECIFIED;
         }
     }
 
