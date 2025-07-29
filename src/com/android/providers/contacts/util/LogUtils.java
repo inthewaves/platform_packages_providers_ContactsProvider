@@ -115,7 +115,10 @@ public class LogUtils {
                 logFields.getUid(),
                 logFields.getAccountType(),
                 logFields.getAccountDataOrigin(),
-                logFields.getDefaultAccountState()
+                logFields.getDefaultAccountState(),
+                ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED__CALLER_ACCOUNT_TYPE_OWNERSHIP__CALLER_ACCOUNT_TYPE_OWNERSHIP_UNSPECIFIED,
+                ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED__ACCOUNT_SYNC_MODE__ACCOUNT_SYNC_MODE_UNSPECIFIED
+
         );
     }
 
