@@ -233,6 +233,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Supplier;
 
 /**
  * Contacts content provider. The contract between this provider and applications
@@ -1558,6 +1559,9 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
     private AppCloningDeviceConfigHelper mAppCloningDeviceConfigHelper;
 
+    // For testability. See setSyncAdapterTypesForTest
+    private Supplier<SyncAdapterType[]> mSyncAdaptersSupplier = ContentResolver::getSyncAdapterTypes;
+
     /**
      * Subscription change will trigger ACTION_PHONE_ACCOUNT_REGISTERED that broadcasts new
      * PhoneAccountHandle that is created based on the new subscription. This receiver is used
@@ -2442,12 +2446,14 @@ public class ContactsProvider2 extends AbstractContactsProvider
             logBuilder.setException(e);
             throw e;
         } finally {
-            LogUtils.log(
-                    logBuilder.setResultUri(resultUri).setResultCount(resultUri == null ? 0 : 1)
-                            .build());
             if (insertAccountLogging()) {
+                logBuilder.detectCallerAccountTypeOwnership(getContext().getPackageManager(),
+                        AccountManager.get(getContext()).getAuthenticatorTypes())
+                        .detectAccountSyncMode(mSyncAdaptersSupplier.get());
                 mLogFieldsBuilderHolder.remove();
             }
+            LogUtils.log(logBuilder.setResultUri(resultUri).setResultCount(
+                    resultUri == null ? 0 : 1).build());
         }
     }
 
@@ -10916,6 +10922,11 @@ public class ContactsProvider2 extends AbstractContactsProvider
     @NeededForTesting
     public void setContactsDatabaseHelperForTest(ContactsDatabaseHelper contactsHelper) {
         mContactsHelper = contactsHelper;
+    }
+
+    @NeededForTesting
+    public void setSyncAdapterTypesForTest(SyncAdapterType[] syncAdapterTypes) {
+        mSyncAdaptersSupplier = () -> syncAdapterTypes;
     }
 
     @VisibleForTesting
