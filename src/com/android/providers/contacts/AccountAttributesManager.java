@@ -19,12 +19,15 @@ package com.android.providers.contacts;
 import android.accounts.Account;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.SystemClock;
+import android.provider.ContactsContract;
 import android.provider.ContactsContract.Settings.AccountAttributes;
 import android.util.Log;
 
 import com.android.providers.contacts.util.NeededForTesting;
 
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -38,7 +41,6 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class AccountAttributesManager {
     private static final String TAG = "AccountAttributesManager";
-
 
     /** Rate limit (in milliseconds) for account attributes updating. Do it at most once per day. */
     private static final long DEFAULT_ACCOUNT_ATTRIBUTES_UPDATE_RATE_LIMIT = 24 * 60 * 60 * 1000;
@@ -97,7 +99,9 @@ public class AccountAttributesManager {
                     "Cannot get account attributes for invalid accounts.");
         }
 
-        boolean needsUpdate = needsAccountAttributesUpdate(accountWithDataSet, accountAttributes);
+        long now = SystemClock.elapsedRealtime();
+        boolean needsUpdate = needsAccountAttributesUpdate(accountWithDataSet, accountAttributes,
+                now);
 
         if (needsUpdate) {
             // Initialize or update the account attributes, subjected to rate limit.
@@ -109,50 +113,110 @@ public class AccountAttributesManager {
             synchronized (this) {
                 // Re-check the condition inside the synchronized block
                 // another thread might have finished the update while we were waiting.
-                needsUpdate = needsAccountAttributesUpdate(accountWithDataSet, accountAttributes);
+                needsUpdate = needsAccountAttributesUpdate(accountWithDataSet, accountAttributes,
+                        now);
 
                 if (needsUpdate) {
                     // Now, it's safe to perform the update.
-                    Log.i(TAG, "Start to initialize or refresh account attribute");
-
-                    final SQLiteDatabase db = mDbHelper.getWritableDatabase();
-                    db.beginTransaction();
-                    try {
-                        // Re-query the fresh SIM account state inside the same transaction with
-                        // account attribute initialization, so that  if the SIM account state
-                        // changed since last call, the account attributes
-                        // initialization is based on an up-to-date SIM account.
-                        if (!isSystemOrLocalAccount && !accountWithDataSet.inSimAccounts(
-                                mDbHelper.getAllSimAccounts())) {
-                            throw new IllegalArgumentException(
-                                    "Account state changed and is now invalid");
-                        }
-
-                        accountAttributes = initializeAccountAttributes(accountWithDataSet);
-                        db.setTransactionSuccessful();
-                        mLastAccountAttributeUpdate.put(accountWithDataSet,
-                                SystemClock.elapsedRealtime());
-                    } finally {
-                        db.endTransaction();
+                    if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                        Log.v(TAG, "Start to initialize or refresh account attribute");
                     }
+                    accountAttributes = refreshAccountAttributes(accountWithDataSet,
+                            isSystemOrLocalAccount, now);
                 }
             }
         }
         return accountAttributes;
     }
 
-    private boolean needsAccountAttributesUpdate(AccountWithDataSet accountWithDataSet,
-            Long accountAttributes) {
-        long now = SystemClock.elapsedRealtime();
-        long lastUpdate = mLastAccountAttributeUpdate.getOrDefault(accountWithDataSet, 0L);
-        return accountAttributes == null
-                || now > lastUpdate + getAccountAttributesEvaluationRateLimit();
+    private Long refreshAccountAttributes(AccountWithDataSet accountWithDataSet,
+            boolean isSystemOrLocalAccount, long currentTimestamp) {
+        Long accountAttributes = initializeAccountAttributes(accountWithDataSet,
+                isSystemOrLocalAccount);
+        mLastAccountAttributeUpdate.put(accountWithDataSet, currentTimestamp);
+        return accountAttributes;
     }
 
-    private Long initializeAccountAttributes(AccountWithDataSet accountWithDataSet) {
-        mDbHelper.setAccountAttributes(accountWithDataSet.getAccountName(),
-                accountWithDataSet.getAccountType(), accountWithDataSet.getDataSet(),
-                mAccountAttributesEvaluator.evaluate(accountWithDataSet), false);
+    /**
+     * Refreshes attributes for all known accounts, subject to a rate limit.
+     *
+     * <p>This method iterates through all accounts stored in the database. For each account, it
+     * checks if its attributes need to be re-evaluated based on the configured rate limit. If an
+     * update is needed, it re-evaluates and stores the new attributes. The entire operation is
+     * performed within a single database transaction.
+     *
+     * <p>Accounts are validated before their attributes are refreshed. An account's attributes will
+     * only be updated if it is a valid local account, is present in the provided {@code
+     * systemAccounts} array, or is a known SIM account.
+     *
+     * @param systemAccounts An array of current system accounts used to validate which accounts
+     *                       should be refreshed.
+     */
+    public synchronized void refreshAllAccountAttributes(Account[] systemAccounts) {
+        if (Log.isLoggable(TAG, Log.DEBUG)) {
+            Log.d(TAG, "Started to refresh all account attributes");
+        }
+
+
+        final Set<AccountWithDataSet> knownAccountsWithDataSets =
+                mDbHelper.getAllAccountsWithDataSets();
+        final List<ContactsContract.SimAccount> simAccounts = mDbHelper.getAllSimAccounts();
+
+        long now = SystemClock.elapsedRealtime();
+        for (AccountWithDataSet accountWithDataSet : knownAccountsWithDataSets) {
+            Long accountAttributes = mDbHelper.getAccountAttributes(
+                    accountWithDataSet.getAccountName(),
+                    accountWithDataSet.getAccountType(), accountWithDataSet.getDataSet());
+            if (!needsAccountAttributesUpdate(accountWithDataSet, accountAttributes, now)) {
+                // Account attributes has been updated recently, skip refreshing.
+                continue;
+            }
+
+            // Refresh the attributes.
+            try {
+                initializeAccountAttributes(accountWithDataSet,
+                        accountWithDataSet.isLocalAccount() || accountWithDataSet.inSystemAccounts(
+                                systemAccounts));
+                mLastAccountAttributeUpdate.put(accountWithDataSet, now);
+            } catch (IllegalArgumentException e) {
+                Log.i(TAG, "Ignore invalid account");
+            }
+        }
+    }
+
+    private boolean needsAccountAttributesUpdate(AccountWithDataSet accountWithDataSet,
+            Long accountAttributes, long currentTimestamp) {
+        long lastUpdate = mLastAccountAttributeUpdate.getOrDefault(accountWithDataSet, 0L);
+        return accountAttributes == null
+                || currentTimestamp > lastUpdate + getAccountAttributesEvaluationRateLimit();
+    }
+
+    private Long initializeAccountAttributes(AccountWithDataSet accountWithDataSet,
+            boolean isSystemOrLocalAccount) {
+        long newAccountAttributes = mAccountAttributesEvaluator.evaluate(accountWithDataSet);
+
+        SQLiteDatabase db = mDbHelper.getWritableDatabase();
+        db.beginTransaction();
+
+        // Query the fresh SIM account state inside the same transaction with
+        // account attribute initialization, so that  if the SIM account state
+        // changed since last call, the account attributes
+        // initialization is based on an up-to-date SIM account.
+        try {
+            if (!isSystemOrLocalAccount && !accountWithDataSet.inSimAccounts(
+                    mDbHelper.getAllSimAccounts())) {
+                throw new IllegalArgumentException(
+                        "Account state changed and is now invalid");
+            }
+
+            mDbHelper.setAccountAttributes(accountWithDataSet.getAccountName(),
+                    accountWithDataSet.getAccountType(), accountWithDataSet.getDataSet(),
+                    newAccountAttributes, false);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+
         return mDbHelper.getAccountAttributes(accountWithDataSet.getAccountName(),
                 accountWithDataSet.getAccountType(), accountWithDataSet.getDataSet());
     }

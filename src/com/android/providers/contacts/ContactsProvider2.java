@@ -279,6 +279,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
     @VisibleForTesting
     protected static final int BACKGROUND_TASK_MIGRATE_PHONE_ACCOUNT_HANDLES = 14;
 
+    private static final int BACKGROUND_TASK_REFRESH_ACCOUNT_ATTRIBUTES = 15;
+
     protected static final int STATUS_NORMAL = 0;
     protected static final int STATUS_UPGRADING = 1;
     protected static final int STATUS_CHANGING_LOCALE = 2;
@@ -1689,6 +1691,10 @@ public class ContactsProvider2 extends AbstractContactsProvider
         scheduleBackgroundTask(BACKGROUND_TASK_CLEAN_DELETE_LOG);
         scheduleBackgroundTask(BACKGROUND_TASK_CLEANUP_DANGLING_CONTACTS);
 
+        if (newAccountAttributesApiEnabled()) {
+            scheduleBackgroundTask(BACKGROUND_TASK_REFRESH_ACCOUNT_ATTRIBUTES);
+        }
+
         ContactsPackageMonitor.start(getContext());
 
         return true;
@@ -1935,6 +1941,12 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
                     cleanupDanglingContacts();
                 }
+                break;
+            }
+
+            case BACKGROUND_TASK_REFRESH_ACCOUNT_ATTRIBUTES: {
+                mAccountAttributesManager.refreshAllAccountAttributes(
+                        AccountManager.get(getContext()).getAccounts());
                 break;
             }
         }
