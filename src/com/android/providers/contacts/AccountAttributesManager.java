@@ -19,13 +19,11 @@ package com.android.providers.contacts;
 import android.accounts.Account;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.SystemClock;
-import android.provider.ContactsContract;
 import android.provider.ContactsContract.Settings.AccountAttributes;
 import android.util.Log;
 
 import com.android.providers.contacts.util.NeededForTesting;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -121,19 +119,12 @@ public class AccountAttributesManager {
                     if (Log.isLoggable(TAG, Log.VERBOSE)) {
                         Log.v(TAG, "Start to initialize or refresh account attribute");
                     }
-                    accountAttributes = refreshAccountAttributes(accountWithDataSet,
-                            isSystemOrLocalAccount, now);
+                    accountAttributes = initializeAccountAttributes(accountWithDataSet,
+                            isSystemOrLocalAccount);
+                    mLastAccountAttributeUpdate.put(accountWithDataSet, now);
                 }
             }
         }
-        return accountAttributes;
-    }
-
-    private Long refreshAccountAttributes(AccountWithDataSet accountWithDataSet,
-            boolean isSystemOrLocalAccount, long currentTimestamp) {
-        Long accountAttributes = initializeAccountAttributes(accountWithDataSet,
-                isSystemOrLocalAccount);
-        mLastAccountAttributeUpdate.put(accountWithDataSet, currentTimestamp);
         return accountAttributes;
     }
 
@@ -142,8 +133,8 @@ public class AccountAttributesManager {
      *
      * <p>This method iterates through all accounts stored in the database. For each account, it
      * checks if its attributes need to be re-evaluated based on the configured rate limit. If an
-     * update is needed, it re-evaluates and stores the new attributes. The entire operation is
-     * performed within a single database transaction.
+     * update is needed, it re-evaluates and stores the new attributes. Each account update is
+     * performed in its own atomic database transaction.
      *
      * <p>Accounts are validated before their attributes are refreshed. An account's attributes will
      * only be updated if it is a valid local account, is present in the provided {@code
@@ -160,7 +151,6 @@ public class AccountAttributesManager {
 
         final Set<AccountWithDataSet> knownAccountsWithDataSets =
                 mDbHelper.getAllAccountsWithDataSets();
-        final List<ContactsContract.SimAccount> simAccounts = mDbHelper.getAllSimAccounts();
 
         long now = SystemClock.elapsedRealtime();
         for (AccountWithDataSet accountWithDataSet : knownAccountsWithDataSets) {
@@ -179,7 +169,9 @@ public class AccountAttributesManager {
                                 systemAccounts));
                 mLastAccountAttributeUpdate.put(accountWithDataSet, now);
             } catch (IllegalArgumentException e) {
-                Log.i(TAG, "Ignore invalid account");
+                if (Log.isLoggable(TAG, Log.VERBOSE)) {
+                    Log.v(TAG, String.format("Ignore invalid account: %s", accountWithDataSet));
+                }
             }
         }
     }
