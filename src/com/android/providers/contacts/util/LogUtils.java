@@ -17,12 +17,8 @@
 package com.android.providers.contacts.util;
 
 import static com.android.providers.contacts.flags.Flags.logCallMethod;
-import static com.android.providers.contacts.flags.Flags.logContactSaveInvalidAccountError;
 
 import android.os.SystemClock;
-import android.provider.ContactsContract;
-
-import com.android.providers.contacts.AccountResolver;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -110,57 +106,17 @@ public class LogUtils {
                 ContactsProviderStatsLog.CONTACTS_PROVIDER_STATUS_REPORTED,
                 logFields.getApiType(),
                 logFields.getUriType(),
-                getCallerType(logFields.isCallerIsSyncAdapter()),
-                getResultType(logFields.getException()),
+                logFields.getCallerType(),
+                logFields.getResultType(),
                 logFields.getResultCount(),
                 getLatencyMicros(logFields.getStartNanos()),
                 logFields.getTaskType(),
                 logCallMethod() ? logFields.getMethodCalled() : 0,
                 logFields.getUid(),
                 logFields.getAccountType(),
-                getAccountDataOrigin(logFields),
+                logFields.getAccountDataOrigin(),
                 logFields.getDefaultAccountState()
         );
-    }
-
-    private static int getCallerType(boolean callerIsSyncAdapter) {
-        return callerIsSyncAdapter
-                ? CallerType.CALLER_IS_SYNC_ADAPTER : CallerType.CALLER_IS_NOT_SYNC_ADAPTER;
-    }
-
-
-    private static int getResultType(Exception exception) {
-        if (exception == null) {
-            return ResultType.SUCCESS;
-        } else if (exception instanceof IllegalArgumentException) {
-            if (logContactSaveInvalidAccountError()
-                    && AccountResolver.UNABLE_TO_WRITE_TO_LOCAL_OR_SIM_EXCEPTION_MESSAGE.equals(
-                    exception.getMessage())) {
-                return ResultType.INVALID_ACCOUNT;
-            }
-            return ResultType.ILLEGAL_ARGUMENT;
-        } else if (exception instanceof UnsupportedOperationException) {
-            return ResultType.UNSUPPORTED_OPERATION;
-        } else {
-            return ResultType.FAIL;
-        }
-    }
-
-    private static int getAccountDataOrigin(LogFields logFields) {
-        if (logFields.isSystemAccount()) {
-            return AccountDataOrigin.CLOUD;
-        } else if (logFields.isLocalAccount()) {
-            return AccountDataOrigin.LOCAL;
-        } else if (logFields.isSimAccount()) {
-            return switch (logFields.getSimAccountEf()) {
-                case ContactsContract.SimAccount.ADN_EF_TYPE -> AccountDataOrigin.SIM_ADN;
-                case ContactsContract.SimAccount.FDN_EF_TYPE -> AccountDataOrigin.SIM_FDN;
-                case ContactsContract.SimAccount.SDN_EF_TYPE -> AccountDataOrigin.SIM_SDN;
-                default -> AccountDataOrigin.UNSPECIFIED;
-            };
-        } else {
-            return AccountDataOrigin.UNSPECIFIED;
-        }
     }
 
     private static long getLatencyMicros(long startNanos) {
