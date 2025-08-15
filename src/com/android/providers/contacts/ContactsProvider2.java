@@ -29,6 +29,7 @@ import static com.android.providers.contacts.util.PhoneAccountHandleMigrationUti
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
+import android.accounts.AuthenticatorDescription;
 import android.accounts.OnAccountsUpdateListener;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
@@ -2849,6 +2850,14 @@ public class ContactsProvider2 extends AbstractContactsProvider
             String accountName = extras.getString(Settings.ACCOUNT_NAME);
             String accountType = extras.getString(Settings.ACCOUNT_TYPE);
             String dataSet = extras.getString(Settings.DATA_SET);
+
+            if (!isCalledByAuthenticator(getCallingPackage(), accountType)) {
+                throw new SecurityException(String.format(
+                        "Cannot set account attributes: The calling package %s is not the "
+                                + "authenticator for this account.",
+                        getCallingPackage()));
+            }
+
             AccountWithDataSet accountWithDataSet = new AccountWithDataSet(accountName, accountType,
                     dataSet);
 
@@ -2860,7 +2869,24 @@ public class ContactsProvider2 extends AbstractContactsProvider
         return null;
     }
 
+    private boolean isCalledByAuthenticator(@Nullable String packageName,
+            @Nullable String accountType) {
+        if (packageName == null || accountType == null) {
+            return false;
+        }
 
+        final AccountManager accountManager = AccountManager.get(getContext());
+        final AuthenticatorDescription[] auths = accountManager.getAuthenticatorTypes();
+
+        for (AuthenticatorDescription auth : auths) {
+            // Check if both the account type and package name match an existing authenticator
+            if (accountType.equals(auth.type) && packageName.equals(auth.packageName)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     private static LogFields.Builder getCallMethodLogBuilder() {
         return LogFields.Builder.aLogFields()
