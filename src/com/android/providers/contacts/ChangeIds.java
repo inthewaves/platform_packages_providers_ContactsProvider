@@ -16,7 +16,6 @@
 package com.android.providers.contacts;
 
 import android.compat.annotation.ChangeId;
-import android.compat.annotation.EnabledAfter;
 import android.compat.annotation.EnabledSince;
 import android.os.Build;
 
@@ -31,14 +30,4 @@ public class ChangeIds {
     @ChangeId
     @EnabledSince(targetSdkVersion = Build.VERSION_CODES.BAKLAVA)
     public static final long RESTRICT_CONTACTS_CREATION_IN_ACCOUNTS = 352312780L;
-
-    /**
-     * Restricts PII columns from data view of CP2, starting after
-     * {@link android.os.Build.VERSION_CODES#BAKLAVA}.
-     * <p>When enabled, this feature removes certain columns containing PII info from the data
-     * view Contacts Provider DB.
-     */
-    @ChangeId
-    @EnabledAfter(targetSdkVersion = Build.VERSION_CODES.BAKLAVA)
-    public static final long RESTRICT_DATA_URI_COLUMNS = 437318646L;
 }
