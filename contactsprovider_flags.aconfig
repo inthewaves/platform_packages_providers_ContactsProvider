@@ -82,3 +82,12 @@ flag {
    description: "Enables default account eligibility dynamically determined by account attributes"
    bug: "438754194"
 }
+flag {
+   name: "directory_provider_query_permission_check"
+   namespace: "contacts"
+   description: "Enables READ_CALL_LOG and WRITE_CONTACTS permissions checks for directory provider queries."
+   bug: "157720069"
+   metadata {
+       purpose: PURPOSE_BUGFIX
+   }
+}

@@ -62,6 +62,10 @@ test_module_config {
             name: "feature-flags:flag-value",
             value: "profile_experiences/com.android.providers.contacts.flags.restrict_pii_data_uri_columns=true",
         },
+        {
+            name: "feature-flags:flag-value",
+            value: "contacts/com.android.providers.contacts.flags.directory_provider_query_permission_check=true",
+        },
     ],
 }
 
@@ -88,6 +92,10 @@ test_module_config {
         {
             name: "feature-flags:flag-value",
             value: "profile_experiences/com.android.providers.contacts.flags.restrict_pii_data_uri_columns=false",
+        },
+        {
+            name: "feature-flags:flag-value",
+            value: "contacts/com.android.providers.contacts.flags.directory_provider_query_permission_check=false",
         },
     ],
 }
