@@ -80,6 +80,7 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
         valuesToInsert.put(SessionColumns.SESSION_UID, sessionUid);
         valuesToInsert.put(SessionColumns.CALLER_UID,
                 values.getAsInteger(SessionColumns.CALLER_UID));
+        valuesToInsert.put(SessionColumns.CREATED_AT, System.currentTimeMillis());
 
         final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
         final long rowId = db.insert(Tables.SESSIONS, null, valuesToInsert);

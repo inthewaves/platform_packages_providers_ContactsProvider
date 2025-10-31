@@ -64,7 +64,7 @@ class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
                 + SessionColumns.SESSION_UID + " TEXT UNIQUE NOT NULL,"
                 + SessionColumns.DATA_ROW_IDS + " TEXT,"
                 + SessionColumns.CALLER_UID + " INTEGER NOT NULL,"
-                + SessionColumns.CREATED_AT + " INTEGER DEFAULT CURRENT_TIMESTAMP NOT NULL"
+                + SessionColumns.CREATED_AT + " INTEGER NOT NULL"
                 + ")");
     }
 
