@@ -39,6 +39,9 @@ android_app {
     optimize: {
         proguard_flags_files: ["proguard.flags"],
     },
+    flags_packages: [
+        "android.content.flags-aconfig",
+    ],
 }
 
 java_library {
