@@ -19,6 +19,7 @@ package com.android.providers.contacts.picker;
 import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.provider.BaseColumns;
 
 class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
 
@@ -30,6 +31,13 @@ class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
         String SESSIONS = "sessions";
     }
 
+    public interface SessionColumns extends BaseColumns {
+        String DATA_ROW_IDS = "data_row_ids";
+        String SESSION_UID = "session_uid";
+        String CALLER_UID = "caller_uid";
+        String CREATED_AT = "created_at";
+    }
+
     private static volatile ContactsPickerDatabaseHelper sInstance;
 
     public static ContactsPickerDatabaseHelper getInstance(Context context) {
@@ -39,7 +47,7 @@ class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
         }
         synchronized (SINGLETON_LOCK) {
             if (sInstance == null) {
-                sInstance = new ContactsPickerDatabaseHelper(context.getApplicationContext());
+                sInstance = new ContactsPickerDatabaseHelper(context);
             }
         }
         return sInstance;
@@ -52,11 +60,11 @@ class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE " + Tables.SESSIONS + " ("
-                + "id INTEGER PRIMARY KEY,"
-                + "session_uid TEXT,"
-                + "data_row_ids TEXT,"
-                + "caller_uid INTEGER,"
-                + "created_at INTEGER"
+                + SessionColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                + SessionColumns.SESSION_UID + " TEXT UNIQUE NOT NULL,"
+                + SessionColumns.DATA_ROW_IDS + " TEXT,"
+                + SessionColumns.CALLER_UID + " INTEGER NOT NULL,"
+                + SessionColumns.CREATED_AT + " INTEGER DEFAULT CURRENT_TIMESTAMP NOT NULL"
                 + ")");
     }
 

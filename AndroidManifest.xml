@@ -109,6 +109,14 @@
             android:exported="true">
         </provider>
 
+        <provider android:name="com.android.providers.contacts.picker.ContactsPickerSessionProvider"
+            android:authorities="com.android.contacts.picker.sessions"
+            android:readPermission="android.permission.MANAGE_CONTACTS_PICKER_SESSION"
+            android:writePermission="android.permission.MANAGE_CONTACTS_PICKER_SESSION"
+            android:featureFlag="android.content.flags.enable_system_contacts_picker"
+            android:exported="true">
+        </provider>
+
         <!-- Handles database upgrades after OTAs, then disables itself -->
         <receiver android:name="ContactsUpgradeReceiver"
             android:exported="true">
