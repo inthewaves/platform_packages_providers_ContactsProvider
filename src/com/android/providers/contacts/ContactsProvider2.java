@@ -17,11 +17,14 @@ package com.android.providers.contacts;
 
 import static android.Manifest.permission.INTERACT_ACROSS_USERS;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
+import static android.Manifest.permission.READ_CALL_LOG;
+import static android.Manifest.permission.WRITE_CONTACTS;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 import static android.provider.Flags.newDefaultAccountApiEnabled;
 import static android.provider.Flags.newAccountAttributesApiEnabled;
 
 import static com.android.providers.contacts.flags.Flags.cp2SyncSearchIndexFlag;
+import static com.android.providers.contacts.flags.Flags.directoryProviderQueryPermissionCheck;
 import static com.android.providers.contacts.flags.Flags.disableCp2AccountMoveFlag;
 import static com.android.providers.contacts.flags.Flags.insertAccountLogging;
 import static com.android.providers.contacts.flags.Flags.logCallMethod;
@@ -1593,6 +1596,10 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
     // For testability. See setSyncAdapterTypesForTest
     private Supplier<SyncAdapterType[]> mSyncAdaptersSupplier = ContentResolver::getSyncAdapterTypes;
+
+    // For testability. Never changed in prod.
+    private CompatChangeEnabledFunction3 mCompatChangeEnabledFunction3 =
+            CompatChanges::isChangeEnabled;
 
     /**
      * Subscription change will trigger ACTION_PHONE_ACCOUNT_REGISTERED that broadcasts new
@@ -4764,7 +4771,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
     @Override
     protected int updateInTransaction(
             Uri uri, ContentValues values, String selection, String[] selectionArgs) {
-
         if (VERBOSE_LOGGING) {
             Log.v(TAG, "updateInTransaction: uri=" + uri +
                     "  selection=[" + selection + "]  args=" + Arrays.toString(selectionArgs) +
@@ -6550,11 +6556,35 @@ public class ContactsProvider2 extends AbstractContactsProvider
                         "  Caller=" + getCallingPackage() +
                         "  User=" + UserUtils.getCurrentUserHandle(getContext()));
             }
+            final String packageName = directoryInfo.packageName;
+            // enforce permissions
+            if (directoryProviderQueryPermissionCheck()) {
+                final int queryType = sUriMatcher.match(uri);
+                final PackageManager pm = getContext().getPackageManager();
+                UserHandle userHandle = getContext().getUser();
+                if (mCompatChangeEnabledFunction3.isChangeEnabled(
+                        ChangeIds.REQUIRE_PERMISSIONS_FOR_DIRECTORY_QUERIES,
+                        directoryInfo.packageName, userHandle)) {
+                    if (queryType == PHONE_LOOKUP || queryType == PHONES_FILTER) {
+                        if (pm.checkPermission(READ_CALL_LOG, packageName) != PERMISSION_GRANTED) {
+                            Log.w(TAG, "Package " + packageName
+                                    + " does not have permission for phone lookup queries.");
+                            return null;
+                        }
+                    }
+                    if (pm.checkPermission(WRITE_CONTACTS, packageName) != PERMISSION_GRANTED) {
+                        Log.w(TAG, "Package " + packageName
+                                + " does not have permission for contact lookup queries.");
+                        return null;
+                    }
+                }
+            }
             cursor = getContext().getContentResolver().query(
                     directoryUri, projection, selection, selectionArgs, sortOrder);
             if (cursor == null) {
                 return null;
             }
+
         } catch (RuntimeException e) {
             Log.w(TAG, "Directory query failed", e);
             return null;
@@ -6715,7 +6745,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 Directory.DIRECTORY_AUTHORITY,
                 Directory.ACCOUNT_NAME,
                 Directory.ACCOUNT_TYPE,
-                Directory.PACKAGE_NAME
+                Directory.PACKAGE_NAME,
         };
 
         public static final int DIRECTORY_ID = 0;
@@ -11032,6 +11062,12 @@ public class ContactsProvider2 extends AbstractContactsProvider
     @NeededForTesting
     public void setSyncAdapterTypesForTest(SyncAdapterType[] syncAdapterTypes) {
         mSyncAdaptersSupplier = () -> syncAdapterTypes;
+    }
+
+    @NeededForTesting
+    public void setCompatChangeEnabledFunction3ForTest(
+            CompatChangeEnabledFunction3 testImpl) {
+        mCompatChangeEnabledFunction3 = testImpl;
     }
 
     @VisibleForTesting

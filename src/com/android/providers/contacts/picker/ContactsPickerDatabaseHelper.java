@@ -21,6 +21,9 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.BaseColumns;
 
+/**
+ * Database helper for managing the contacts picker sessions.
+ */
 class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
 
     private static final int DATABASE_VERSION = 1;
@@ -40,6 +43,12 @@ class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
 
     private static volatile ContactsPickerDatabaseHelper sInstance;
 
+    /**
+     * Returns a singleton instance of {@link ContactsPickerDatabaseHelper}.
+     *
+     * @param context The {@link Context} to use for creating the database helper.
+     * @return A singleton instance of {@link ContactsPickerDatabaseHelper}.
+     */
     public static ContactsPickerDatabaseHelper getInstance(Context context) {
         ContactsPickerDatabaseHelper singleReadResult = sInstance;
         if (singleReadResult != null) {
@@ -64,7 +73,7 @@ class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
                 + SessionColumns.SESSION_UID + " TEXT UNIQUE NOT NULL,"
                 + SessionColumns.DATA_ROW_IDS + " TEXT,"
                 + SessionColumns.CALLER_UID + " INTEGER NOT NULL,"
-                + SessionColumns.CREATED_AT + " INTEGER DEFAULT CURRENT_TIMESTAMP NOT NULL"
+                + SessionColumns.CREATED_AT + " INTEGER NOT NULL"
                 + ")");
     }
 
