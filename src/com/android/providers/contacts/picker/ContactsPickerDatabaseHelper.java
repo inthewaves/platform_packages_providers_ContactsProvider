@@ -21,9 +21,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.provider.BaseColumns;
 
-/**
- * Database helper for managing the contacts picker sessions.
- */
+/** Database helper for managing the contacts picker sessions. */
 class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
 
     private static final int DATABASE_VERSION = 1;
@@ -68,13 +66,21 @@ class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE " + Tables.SESSIONS + " ("
-                + SessionColumns._ID + " INTEGER PRIMARY KEY AUTOINCREMENT,"
-                + SessionColumns.SESSION_UID + " TEXT UNIQUE NOT NULL,"
-                + SessionColumns.DATA_ROW_IDS + " TEXT,"
-                + SessionColumns.CALLER_UID + " INTEGER NOT NULL,"
-                + SessionColumns.CREATED_AT + " INTEGER NOT NULL"
-                + ")");
+        db.execSQL(
+                "CREATE TABLE "
+                        + Tables.SESSIONS
+                        + " ("
+                        + SessionColumns._ID
+                        + " INTEGER PRIMARY KEY AUTOINCREMENT,"
+                        + SessionColumns.SESSION_UID
+                        + " TEXT UNIQUE NOT NULL,"
+                        + SessionColumns.DATA_ROW_IDS
+                        + " TEXT,"
+                        + SessionColumns.CALLER_UID
+                        + " INTEGER NOT NULL,"
+                        + SessionColumns.CREATED_AT
+                        + " INTEGER NOT NULL"
+                        + ")");
     }
 
     @Override

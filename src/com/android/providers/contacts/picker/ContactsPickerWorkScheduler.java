@@ -36,7 +36,6 @@ public class ContactsPickerWorkScheduler {
     static final long CLEANUP_INTERVAL_DAYS = 1;
     private static final boolean VERBOSE_LOGGING = Log.isLoggable(TAG, Log.VERBOSE);
 
-
     /**
      * Schedules a periodic work to clean up stale contacts picker sessions.
      *
@@ -53,14 +52,17 @@ public class ContactsPickerWorkScheduler {
 
         WorkManager workManager = WorkManagerInitializer.getWorkManager(context);
 
-        Constraints constraints = new Constraints.Builder()
-                .setRequiresDeviceIdle(true)
-                .setRequiresBatteryNotLow(true)
-                .build();
+        Constraints constraints =
+                new Constraints.Builder()
+                        .setRequiresDeviceIdle(true)
+                        .setRequiresBatteryNotLow(true)
+                        .build();
 
         PeriodicWorkRequest cleanupRequest =
-                new PeriodicWorkRequest.Builder(ContactsPickerCleanupWorker.class,
-                        CLEANUP_INTERVAL_DAYS, TimeUnit.DAYS)
+                new PeriodicWorkRequest.Builder(
+                                ContactsPickerCleanupWorker.class,
+                                CLEANUP_INTERVAL_DAYS,
+                                TimeUnit.DAYS)
                         .setConstraints(constraints)
                         .build();
 

@@ -25,17 +25,17 @@ import android.util.Log;
  * A {@link BroadcastReceiver} that ensures the contacts picker cleanup work is actively scheduled
  * with WorkManager, especially after system events like boot or package updates.
  *
- * <p>While WorkManager persists work requests across reboots and app updates, this receiver
- * acts as a trigger to ensure WorkManager re-evaluates and re-synchronizes these tasks
- * with the underlying system schedulers at the correct times.
+ * <p>While WorkManager persists work requests across reboots and app updates, this receiver acts as
+ * a trigger to ensure WorkManager re-evaluates and re-synchronizes these tasks with the underlying
+ * system schedulers at the correct times.
  *
  * <ul>
- *   <li>{@link Intent#ACTION_BOOT_COMPLETED}: After a device reboot, this prompts WorkManager
- *       to re-register its persisted tasks with the system's job scheduler.
+ *   <li>{@link Intent#ACTION_BOOT_COMPLETED}: After a device reboot, this prompts WorkManager to
+ *       re-register its persisted tasks with the system's job scheduler.
  *   <li>{@link Intent#ACTION_MY_PACKAGE_REPLACED}: When the ContactsProvider package is updated,
- *       explicitly rescheduling ensures the new version of the app correctly registers
- *       the cleanup task, applying any changes in the work definition and ensuring
- *       the WorkManager instance in the new version is fully initialized and synchronized.
+ *       explicitly rescheduling ensures the new version of the app correctly registers the cleanup
+ *       task, applying any changes in the work definition and ensuring the WorkManager instance in
+ *       the new version is fully initialized and synchronized.
  * </ul>
  *
  * <p>This is a best practice to guarantee the reliability and consistency of periodic work.
