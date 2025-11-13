@@ -20,7 +20,6 @@ import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
 import static android.Manifest.permission.READ_CALL_LOG;
 import static android.Manifest.permission.WRITE_CONTACTS;
 import static android.content.pm.PackageManager.PERMISSION_GRANTED;
-import static android.provider.Flags.newDefaultAccountApiEnabled;
 import static android.provider.Flags.newAccountAttributesApiEnabled;
 
 import static com.android.providers.contacts.flags.Flags.cp2SyncSearchIndexFlag;
@@ -2702,12 +2701,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                                     LogUtils.MethodCall.GET_DEFAULT_ACCOUNT_FOR_NEW_CONTACTS)
                             : null;
             try {
-                if (newDefaultAccountApiEnabled()) {
-                    return queryDefaultAccountForNewContacts();
-                } else {
-                    throw new UnsupportedOperationException(
-                            "Query default account for new contacts is not supported.");
-                }
+                return queryDefaultAccountForNewContacts();
             } catch (Exception e) {
                 if (enableCallMethodLogging) {
                     logBuilder.setException(e);
@@ -2724,13 +2718,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                             .setMethodCalled(LogUtils.MethodCall.GET_ELIGIBLE_CLOUD_ACCOUNTS)
                             : null;
             try {
-                if (newDefaultAccountApiEnabled()) {
-                    return queryEligibleDefaultAccounts();
-                } else {
-                    throw new UnsupportedOperationException(
-                            "Query eligible account that can be set as cloud default account "
-                                    + "is not supported.");
-                }
+                return queryEligibleDefaultAccounts();
             } catch (Exception e) {
                 if (enableCallMethodLogging) {
                     logBuilder.setException(e);
@@ -2751,12 +2739,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                                     LogUtils.MethodCall.SET_DEFAULT_ACCOUNT_FOR_NEW_CONTACTS)
                             : null;
             try {
-                if (newDefaultAccountApiEnabled()) {
-                    return setDefaultAccountForNewContactsSetting(extras);
-                } else {
-                    throw new UnsupportedOperationException(
-                            "Set default account for new contacts is not supported.");
-                }
+                return setDefaultAccountForNewContactsSetting(extras);
             } catch (Exception e) {
                 if (enableCallMethodLogging) {
                     logBuilder.setException(e);
@@ -2775,7 +2758,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                                     LogUtils.MethodCall.MOVE_LOCAL_CONTACTS_TO_DEFAULT_ACCOUNT)
                             : null;
             try {
-                if (!newDefaultAccountApiEnabled() || disableCp2AccountMoveFlag()) {
+                if (disableCp2AccountMoveFlag()) {
                     throw new UnsupportedOperationException(
                             "Move local contacts to cloud default account is not supported");
                 }
@@ -2797,10 +2780,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
             }
         } else if (RawContacts.DefaultAccount.GET_NUMBER_OF_MOVABLE_LOCAL_CONTACTS_METHOD
                 .equals(method)) {
-            if (!newDefaultAccountApiEnabled()) {
-                throw new UnsupportedOperationException(
-                        "Getting the count of local contacts to move is not supported");
-            }
             if (disableCp2AccountMoveFlag()) {
                 Log.w(TAG, "Cp2AccountMoveFlag disabled");
                 return new Bundle();
@@ -2821,7 +2800,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                                     LogUtils.MethodCall.MOVE_SIM_CONTACTS_TO_DEFAULT_ACCOUNT)
                             : null;
             try {
-                if (!newDefaultAccountApiEnabled() || disableCp2AccountMoveFlag()) {
+                if (disableCp2AccountMoveFlag()) {
                     throw new UnsupportedOperationException(
                             "Move SIM contacts to cloud default account is not supported");
                 }
@@ -2843,10 +2822,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
             }
         } else if (RawContacts.DefaultAccount.GET_NUMBER_OF_MOVABLE_SIM_CONTACTS_METHOD
                 .equals(method)) {
-            if (!newDefaultAccountApiEnabled()) {
-                throw new UnsupportedOperationException(
-                        "Getting the count of SIM contacts to move is not supported");
-            }
             if (disableCp2AccountMoveFlag()) {
                 return new Bundle();
             }
@@ -3473,8 +3448,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
             case RAW_CONTACTS:
             case PROFILE_RAW_CONTACTS: {
                 invalidateFastScrollingIndexCache();
-                id = insertRawContact(uri, values, callerIsSyncAdapter,
-                        newDefaultAccountApiEnabled() && match == RAW_CONTACTS);
+                id = insertRawContact(uri, values, callerIsSyncAdapter, match == RAW_CONTACTS);
                 mSyncToNetwork |= !callerIsSyncAdapter;
                 break;
             }
@@ -3505,8 +3479,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
             }
 
             case GROUPS: {
-                id = insertGroup(uri, values, callerIsSyncAdapter,
-                        newDefaultAccountApiEnabled());
+                id = insertGroup(uri, values, callerIsSyncAdapter, true);
                 mSyncToNetwork |= !callerIsSyncAdapter;
                 break;
             }
@@ -4886,7 +4859,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 invalidateFastScrollingIndexCache();
                 selection = appendAccountIdToSelection(uri, selection);
                 count = updateRawContacts(values, selection, selectionArgs, callerIsSyncAdapter,
-                         newDefaultAccountApiEnabled() && match == RAW_CONTACTS);
+                          match == RAW_CONTACTS);
                 break;
             }
 
@@ -4897,11 +4870,11 @@ public class ContactsProvider2 extends AbstractContactsProvider
                     selectionArgs = insertSelectionArg(selectionArgs, String.valueOf(rawContactId));
                     count = updateRawContacts(values, RawContacts._ID + "=?"
                                     + " AND(" + selection + ")", selectionArgs,
-                            callerIsSyncAdapter, newDefaultAccountApiEnabled());
+                            callerIsSyncAdapter, true);
                 } else {
                     mSelectionArgs1[0] = String.valueOf(rawContactId);
                     count = updateRawContacts(values, RawContacts._ID + "=?", mSelectionArgs1,
-                            callerIsSyncAdapter, newDefaultAccountApiEnabled());
+                            callerIsSyncAdapter, true);
                 }
                 break;
             }
@@ -5198,7 +5171,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                         ? updatedDataSet : c.getString(GroupAccountQuery.DATA_SET);
 
                 if (isAccountChanging) {
-                    if (newDefaultAccountApiEnabled() && isAccountRestrictionEnabled()) {
+                    if (isAccountRestrictionEnabled()) {
                         if (insertAccountLogging()) {
                             InsertAccountValidator.ValidationResultWithDetails validationResult =
                                     mAccountResolver.getAccountValidationResultForContactAddition(

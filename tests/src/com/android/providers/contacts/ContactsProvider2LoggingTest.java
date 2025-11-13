@@ -124,8 +124,8 @@ public class ContactsProvider2LoggingTest extends BaseContactsProvider2Test {
     }
 
     @Test
-    @RequiresFlagsEnabled({android.provider.Flags.FLAG_NEW_DEFAULT_ACCOUNT_API_ENABLED,
-            Flags.FLAG_INSERT_ACCOUNT_LOGGING})
+    @RequiresFlagsEnabled(
+            Flags.FLAG_INSERT_ACCOUNT_LOGGING)
     public void testInsertRawContact_logsEventWithDcaState() {
         mActor.setAccounts(new Account[]{mAccount});
         ContactsContract.RawContacts.DefaultAccount.setDefaultAccountForNewContacts(mResolver,
