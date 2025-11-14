@@ -9463,30 +9463,6 @@ public class ContactsProvider2 extends AbstractContactsProvider
         qb.appendWhere(sb.toString());
     }
 
-    private void appendAccountFromParameter(SQLiteQueryBuilder qb, Uri uri) {
-        final AccountWithDataSet accountWithDataSet = getAccountWithDataSetFromUri(uri);
-
-        // Accounts are valid by only checking one parameter, since we've
-        // already ruled out partial accounts.
-        final boolean validAccount = !TextUtils.isEmpty(accountWithDataSet.getAccountName());
-        if (validAccount) {
-            String toAppend = "(" + RawContacts.ACCOUNT_NAME + "="
-                    + DatabaseUtils.sqlEscapeString(accountWithDataSet.getAccountName()) + " AND "
-                    + RawContacts.ACCOUNT_TYPE + "="
-                    + DatabaseUtils.sqlEscapeString(accountWithDataSet.getAccountType());
-            if (accountWithDataSet.getDataSet() == null) {
-                toAppend += " AND " + RawContacts.DATA_SET + " IS NULL";
-            } else {
-                toAppend += " AND " + RawContacts.DATA_SET + "=" +
-                        DatabaseUtils.sqlEscapeString(accountWithDataSet.getDataSet());
-            }
-            toAppend += ")";
-            qb.appendWhere(toAppend);
-        } else {
-            qb.appendWhere("1");
-        }
-    }
-
     private void appendAccountIdFromParameter(SQLiteQueryBuilder qb, Uri uri) {
         final AccountWithDataSet accountWithDataSet = getAccountWithDataSetFromUri(uri);
 
