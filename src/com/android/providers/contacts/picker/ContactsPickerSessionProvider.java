@@ -65,6 +65,7 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
     @Override
     public boolean onCreate() {
         mDatabaseHelper = ContactsPickerDatabaseHelper.getInstance(getContext());
+        ContactsPickerJobScheduler.scheduleCleanupJob(getContext());
         return true;
     }
 
@@ -322,7 +323,7 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
     private void cleanupStaleSessions() {
         long expirationTimestamp =
                 System.currentTimeMillis()
-                        - TimeUnit.DAYS.toMillis(ContactsPickerWorkScheduler.CLEANUP_INTERVAL_DAYS);
+                        - TimeUnit.DAYS.toMillis(ContactsPickerJobScheduler.CLEANUP_INTERVAL_DAYS);
         String selection = SessionColumns.CREATED_AT + " <= ?";
         String[] selectionArgs = {String.valueOf(expirationTimestamp)};
         SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();

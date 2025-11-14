@@ -1,5 +1,4 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        xmlns:tools="http://schemas.android.com/tools"
         package="com.android.providers.contacts"
         android:sharedUserId="android.uid.shared"
         android:sharedUserLabel="@string/sharedUserLabel">
@@ -165,26 +164,10 @@
                   android:authorities="com.android.contacts.dumpfile"
                   android:exported="true"/>
 
-        <receiver android:name=".picker.ContactsPickerSchedulingReceiver"
-            android:exported="true"
-            android:featureFlag="android.content.flags.enable_system_contacts_picker">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
-            </intent-filter>
-        </receiver>
-
-        <!-- Disable default WorkManager initializer to use custom on-demand initialization -->
-        <provider
-            android:name="androidx.startup.InitializationProvider"
-            android:authorities="${applicationId}.androidx-startup"
-            android:exported="false"
-            tools:node="merge">
-            <meta-data
-                android:name="androidx.work.WorkManagerInitializer"
-                android:value="androidx.startup"
-                tools:node="remove" />
-        </provider>
+        <service
+            android:name=".picker.ContactsPickerJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false" />
 
     </application>
 </manifest>
