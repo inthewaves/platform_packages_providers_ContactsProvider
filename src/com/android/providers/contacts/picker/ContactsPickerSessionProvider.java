@@ -86,10 +86,12 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
 
         ContentValues valuesToInsert = new ContentValues();
         valuesToInsert.put(
-                SessionColumns.DATA_ROW_IDS, values.getAsString(SessionColumns.DATA_ROW_IDS));
+                SessionColumns.DATA_ROW_IDS,
+                values.getAsString(ContactsPickerSessionContract.Session.CONTACT_DATA_IDS));
         valuesToInsert.put(SessionColumns.SESSION_UID, sessionUid);
         valuesToInsert.put(
-                SessionColumns.CALLER_UID, values.getAsInteger(SessionColumns.CALLER_UID));
+                SessionColumns.CALLER_UID,
+                values.getAsInteger(ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID));
         valuesToInsert.put(SessionColumns.CREATED_AT, System.currentTimeMillis());
 
         final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
@@ -288,34 +290,37 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
             throw new IllegalArgumentException("Insert operation failed: ContentValues is null.");
         }
 
-        String dataRowIds = values.getAsString(SessionColumns.DATA_ROW_IDS);
-        if (TextUtils.isEmpty(dataRowIds)) {
+        String contactDataIds =
+                values.getAsString(ContactsPickerSessionContract.Session.CONTACT_DATA_IDS);
+        if (TextUtils.isEmpty(contactDataIds)) {
             throw new IllegalArgumentException(
-                    "Insert operation failed: DATA_ROW_IDS is missing or empty.");
+                    "Insert operation failed: Contact 'data_ids' is missing or empty.");
         }
 
-        // Validate that dataRowIds are comma-separated long integers
-        String[] ids = dataRowIds.split(",");
+        // Validate that contact data ids are comma-separated long integers
+        String[] ids = contactDataIds.split(",");
         for (String id : ids) {
             try {
                 Long.parseLong(id.trim());
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException(
-                        "Invalid dataRowIds format: "
-                                + dataRowIds
+                        "Invalid contact 'data_ids' format: "
+                                + contactDataIds
                                 + ". Must be comma-separated longs.",
                         e);
             }
         }
 
-        if (!values.containsKey(SessionColumns.CALLER_UID)) {
-            throw new IllegalArgumentException("Insert operation failed: CALLER_UID is missing.");
+        if (!values.containsKey(ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID)) {
+            throw new IllegalArgumentException(
+                    "Insert operation failed: 'requester_uid' is missing.");
         }
 
-        Integer callerUid = values.getAsInteger(SessionColumns.CALLER_UID);
-        if (callerUid == null) {
+        Integer sessionRequesterUid =
+                values.getAsInteger(ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID);
+        if (sessionRequesterUid == null) {
             throw new IllegalArgumentException(
-                    "Insert operation failed: CALLER_UID cannot be null.");
+                    "Insert operation failed: 'requester_uid' cannot be null.");
         }
     }
 
