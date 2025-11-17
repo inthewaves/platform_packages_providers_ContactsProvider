@@ -375,6 +375,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
     public static final int CONTACTS_ID_DISPLAY_PHOTO_CORP = 1028;
     public static final int CONTACTS_FILTER_ENTERPRISE = 1029;
     public static final int CONTACTS_ENTERPRISE = 1030;
+    private static final int CONTACTS_DATA = 1031;
+    private static final int CONTACTS_DATA_FILTER = 1032;
 
     public static final int RAW_CONTACTS = 2002;
     public static final int RAW_CONTACTS_ID = 2003;
@@ -1275,6 +1277,10 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 CONTACTS_FILTER_ENTERPRISE);
         matcher.addURI(ContactsContract.AUTHORITY, "contacts/filter_enterprise/*",
                 CONTACTS_FILTER_ENTERPRISE);
+
+        matcher.addURI(ContactsContract.AUTHORITY, "contacts_data", CONTACTS_DATA);
+        matcher.addURI(ContactsContract.AUTHORITY, "contacts_data/filter/*",
+                CONTACTS_DATA_FILTER);
 
         matcher.addURI(ContactsContract.AUTHORITY, "raw_contacts", RAW_CONTACTS);
         matcher.addURI(ContactsContract.AUTHORITY, "raw_contacts/#", RAW_CONTACTS_ID);
@@ -6899,6 +6905,35 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 break;
             }
 
+            case CONTACTS_DATA: {
+                // This URI is added for the system contacts picker. Restrict access to callers
+                // holding the MANAGE_CONTACTS_PICKER_SESSION permission to ensure only system
+                // components can use it.
+                ContactsPermissions.enforceSystemContactsPickerPermission(getContext());
+
+                setTablesAndProjectionMapForContactsWithMimetypes(qb, uri, projection, null,
+                        directoryId, false);
+                appendLocalDirectoryAndAccountSelectionIfNeeded(qb, directoryId, uri);
+                break;
+            }
+
+            case CONTACTS_DATA_FILTER: {
+                // This URI is added for the system contacts picker. Restrict access to callers
+                // holding the MANAGE_CONTACTS_PICKER_SESSION permission to ensure only system
+                // components can use it.
+                ContactsPermissions.enforceSystemContactsPickerPermission(getContext());
+
+                String filterParam = getFilterParam(uri);
+
+                boolean deferredSnipRequested = deferredSnippetingRequested(uri);
+                snippetDeferred = isSingleWordQuery(filterParam)
+                        && deferredSnipRequested && snippetNeeded(projection);
+
+                setTablesAndProjectionMapForContactsWithMimetypes(qb, uri, projection, filterParam,
+                        directoryId, snippetDeferred);
+                break;
+            }
+
             case CONTACTS_ID_STREAM_ITEMS: {
                 long contactId = Long.parseLong(uri.getPathSegments().get(1));
                 setTablesAndProjectionMapForStreamItems(qb);
@@ -6959,12 +6994,9 @@ public class ContactsProvider2 extends AbstractContactsProvider
             }
 
             case CONTACTS_FILTER: {
-                String filterParam = "";
-                boolean deferredSnipRequested = deferredSnippetingRequested(uri);
-                if (uri.getPathSegments().size() > 2) {
-                    filterParam = uri.getLastPathSegment();
-                }
+                String filterParam = getFilterParam(uri);
 
+                boolean deferredSnipRequested = deferredSnippetingRequested(uri);
                 // If the query consists of a single word, we can do snippetizing after-the-fact for
                 // a performance boost. Otherwise, we can't defer.
                 snippetDeferred = isSingleWordQuery(filterParam)
@@ -8101,6 +8133,14 @@ public class ContactsProvider2 extends AbstractContactsProvider
         }
 
         return cursor;
+    }
+
+    private String getFilterParam(Uri uri) {
+        String filterParam = "";
+        if (uri.getPathSegments().size() > 2) {
+            filterParam = uri.getLastPathSegment();
+        }
+        return filterParam;
     }
 
     // Rewrites query sort orders using SORT_KEY_{PRIMARY, ALTERNATIVE}
@@ -9322,6 +9362,60 @@ public class ContactsProvider2 extends AbstractContactsProvider
         qb.setProjectionMap(sStatusUpdatesProjectionMap);
     }
 
+    /**
+     * Sets up the query builder for contacts filtered by the presence of specific mimetypes.
+     * This method constructs a subquery to identify contacts that have data rows matching
+     * the requested mimetypes.
+     *
+     * The matching logic is either AND or OR, depending on the
+     * {@link Contacts#MATCH_ALL_MIMETYPES_PARAM_KEY} query parameter. If true (AND), contacts must
+     * have data rows for all requested mimetypes set in
+     * {@link Contacts#REQUESTED_MIMETYPES_PARAM_KEY}. If false or not set (OR operation), contacts
+     * must have data rows for at least one of the specified mimetypes set in
+     * {@link Contacts#REQUESTED_MIMETYPES_PARAM_KEY}.
+     */
+    private void setTablesAndProjectionMapForContactsWithMimetypes(SQLiteQueryBuilder qb, Uri uri,
+            String[] projection, String filter, long directoryId, boolean deferSnippeting) {
+
+        if (!TextUtils.isEmpty(filter)) {
+            // For filter queries, join with the search index to get snippets.
+            setTablesAndProjectionMapForContactsWithSnippet(qb, uri, projection, filter,
+                    directoryId, deferSnippeting);
+        } else {
+            setTablesAndProjectionMapForContacts(qb, projection);
+        }
+
+        final String mimeTypes = uri.getQueryParameter(Contacts.REQUESTED_MIMETYPES_PARAM_KEY);
+        if (TextUtils.isEmpty(mimeTypes)) {
+            return;
+        }
+
+        final boolean requireAll = readBooleanQueryParameter(uri,
+                Contacts.MATCH_ALL_MIMETYPES_PARAM_KEY, false);
+
+        final String[] mimeTypeArray = mimeTypes.split(",");
+        if (mimeTypeArray.length == 0) {
+            return;
+        }
+
+        final String mimeTypeIds = mDbHelper.get().getMimeTypeIdsAsString(mimeTypeArray);
+
+        final StringBuilder subQuery = new StringBuilder();
+        if (requireAll) { // AND logic
+            subQuery.append("SELECT " + Data.CONTACT_ID + " FROM " + Views.DATA);
+            subQuery.append(" WHERE " + DataColumns.MIMETYPE_ID + " IN (" + mimeTypeIds + ")");
+            subQuery.append(" GROUP BY " + Data.CONTACT_ID);
+            subQuery.append(" HAVING COUNT(DISTINCT " + DataColumns.MIMETYPE_ID + ") = "
+                    + mimeTypeArray.length);
+        } else { // OR logic
+            subQuery.append("SELECT DISTINCT " + Data.CONTACT_ID + " FROM " + Views.DATA);
+            subQuery.append(
+                    " WHERE " + DataColumns.MIMETYPE_ID + " IN (" + mimeTypeIds.toString() + ")");
+        }
+
+        qb.appendWhere(Contacts._ID + " IN (" + subQuery.toString() + ")");
+    }
+
     private void setTablesAndProjectionMapForStreamItems(SQLiteQueryBuilder qb) {
         qb.setTables(Views.STREAM_ITEMS);
         qb.setProjectionMap(sStreamItemsProjectionMap);
@@ -9460,31 +9554,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                         "))");
             }
         }
-        qb.appendWhere(sb.toString());
-    }
-
-    private void appendAccountFromParameter(SQLiteQueryBuilder qb, Uri uri) {
-        final AccountWithDataSet accountWithDataSet = getAccountWithDataSetFromUri(uri);
-
-        // Accounts are valid by only checking one parameter, since we've
-        // already ruled out partial accounts.
-        final boolean validAccount = !TextUtils.isEmpty(accountWithDataSet.getAccountName());
-        if (validAccount) {
-            String toAppend = "(" + RawContacts.ACCOUNT_NAME + "="
-                    + DatabaseUtils.sqlEscapeString(accountWithDataSet.getAccountName()) + " AND "
-                    + RawContacts.ACCOUNT_TYPE + "="
-                    + DatabaseUtils.sqlEscapeString(accountWithDataSet.getAccountType());
-            if (accountWithDataSet.getDataSet() == null) {
-                toAppend += " AND " + RawContacts.DATA_SET + " IS NULL";
-            } else {
-                toAppend += " AND " + RawContacts.DATA_SET + "=" +
-                        DatabaseUtils.sqlEscapeString(accountWithDataSet.getDataSet());
-            }
-            toAppend += ")";
-            qb.appendWhere(toAppend);
-        } else {
-            qb.appendWhere("1");
-        }
+        qb.appendWhereStandalone(sb.toString());
     }
 
     private void appendAccountIdFromParameter(SQLiteQueryBuilder qb, Uri uri) {

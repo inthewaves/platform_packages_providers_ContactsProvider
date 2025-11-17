@@ -16,12 +16,8 @@
 
 package com.android.providers.contacts.picker;
 
-import android.app.job.JobInfo;
-import android.app.job.JobScheduler;
-import android.content.ComponentName;
 import android.content.ContentProvider;
 import android.content.ContentValues;
-import android.content.Context;
 import android.content.UriMatcher;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -35,9 +31,7 @@ import android.util.Log;
 
 import com.android.providers.contacts.picker.ContactsPickerDatabaseHelper.SessionColumns;
 import com.android.providers.contacts.picker.ContactsPickerDatabaseHelper.Tables;
-import com.android.providers.contacts.picker.ContactsPickerWorkScheduler;
 
-import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -71,6 +65,7 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
     @Override
     public boolean onCreate() {
         mDatabaseHelper = ContactsPickerDatabaseHelper.getInstance(getContext());
+        ContactsPickerJobScheduler.scheduleCleanupJob(getContext());
         return true;
     }
 
@@ -90,11 +85,11 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
         final String sessionUid = UUID.randomUUID().toString();
 
         ContentValues valuesToInsert = new ContentValues();
-        valuesToInsert.put(SessionColumns.DATA_ROW_IDS,
-                values.getAsString(SessionColumns.DATA_ROW_IDS));
+        valuesToInsert.put(
+                SessionColumns.DATA_ROW_IDS, values.getAsString(SessionColumns.DATA_ROW_IDS));
         valuesToInsert.put(SessionColumns.SESSION_UID, sessionUid);
-        valuesToInsert.put(SessionColumns.CALLER_UID,
-                values.getAsInteger(SessionColumns.CALLER_UID));
+        valuesToInsert.put(
+                SessionColumns.CALLER_UID, values.getAsInteger(SessionColumns.CALLER_UID));
         valuesToInsert.put(SessionColumns.CREATED_AT, System.currentTimeMillis());
 
         final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
@@ -115,7 +110,11 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
     }
 
     @Override
-    public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs,
+    public Cursor query(
+            Uri uri,
+            String[] projection,
+            String selection,
+            String[] selectionArgs,
             String sortOrder) {
         if (VERBOSE_LOGGING) {
             Log.d(TAG, "query: uri=" + uri);
@@ -128,8 +127,8 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
                 }
                 yield null; // No session ID provided
             }
-            case URI_MATCH_SESSION_ID -> handleSessionIdQuery(uri, projection, selection,
-                    selectionArgs, sortOrder);
+            case URI_MATCH_SESSION_ID ->
+                    handleSessionIdQuery(uri, projection, selection, selectionArgs, sortOrder);
             default -> throw new IllegalArgumentException("Unknown URI: " + uri);
         };
     }
@@ -155,16 +154,16 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
     }
 
     /**
-     * The call() method is exposed for invoking provider-defined methods.
-     * Currently, the only supported method is "cleanupStaleSessions".
+     * The call() method is exposed for invoking provider-defined methods. Currently, the only
+     * supported method is "cleanupStaleSessions".
      *
-     * <p>The "cleanupStaleSessions" method is used to trigger the cleanup of stale sessions.
-     * This method can only be called by the same process that is running this provider.
-     * Calls from other processes will result in a {@link SecurityException}.
+     * <p>The "cleanupStaleSessions" method is used to trigger the cleanup of stale sessions. This
+     * method can only be called by the same process that is running this provider. Calls from other
+     * processes will result in a {@link SecurityException}.
      *
      * @param method The name of the method to call. Currently only "cleanupStaleSessions" is
-     *               supported.
-     * @param arg    Optional string argument.
+     *     supported.
+     * @param arg Optional string argument.
      * @param extras Optional Bundle of extra data.
      * @return Always returns null.
      * @throws SecurityException if "cleanupStaleSessions" is called from a different process.
@@ -182,21 +181,20 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
         return null;
     }
 
-    private record SessionData(String dataRowIds, int callerUid) {
-    }
+    private record SessionData(String dataRowIds, int callerUid) {}
 
     private SessionData getSessionData(String sessionUid) {
         final SQLiteDatabase db = mDatabaseHelper.getReadableDatabase();
 
         try (Cursor sessionCursor =
-                     db.query(
-                             Tables.SESSIONS,
-                             new String[]{SessionColumns.DATA_ROW_IDS, SessionColumns.CALLER_UID},
-                             SessionColumns.SESSION_UID + " = ?",
-                             new String[]{sessionUid},
-                             null,
-                             null,
-                             null)) {
+                db.query(
+                        Tables.SESSIONS,
+                        new String[] {SessionColumns.DATA_ROW_IDS, SessionColumns.CALLER_UID},
+                        SessionColumns.SESSION_UID + " = ?",
+                        new String[] {sessionUid},
+                        null,
+                        null,
+                        null)) {
             if (!sessionCursor.moveToFirst()) {
                 return null; // Session not found
             }
@@ -207,8 +205,12 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
         }
     }
 
-    private Cursor handleSessionIdQuery(Uri uri, String[] projection, String selection,
-            String[] selectionArgs, String sortOrder) {
+    private Cursor handleSessionIdQuery(
+            Uri uri,
+            String[] projection,
+            String selection,
+            String[] selectionArgs,
+            String sortOrder) {
         final String sessionUid = uri.getLastPathSegment();
         final SessionData sessionData = getSessionData(sessionUid);
         if (sessionData == null) {
@@ -221,15 +223,23 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
         final int callingUid = Binder.getCallingUid();
         if (sessionData.callerUid != callingUid) {
             throw new SecurityException(
-                    "Calling UID " + callingUid + " does not match session owner "
-                            + sessionData.callerUid + " for session UID: " + sessionUid);
+                    "Calling UID "
+                            + callingUid
+                            + " does not match session owner "
+                            + sessionData.callerUid
+                            + " for session UID: "
+                            + sessionUid);
         }
 
-        DataQuery dataQuery = buildDataQuerySelection(sessionData.dataRowIds, selection,
-                selectionArgs);
+        DataQuery dataQuery =
+                buildDataQuerySelection(sessionData.dataRowIds, selection, selectionArgs);
         return getContext()
                 .getContentResolver()
-                .query(Data.CONTENT_URI, projection, dataQuery.selection, dataQuery.selectionArgs,
+                .query(
+                        Data.CONTENT_URI,
+                        projection,
+                        dataQuery.selection,
+                        dataQuery.selectionArgs,
                         sortOrder);
     }
 
@@ -243,8 +253,8 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
         }
     }
 
-    private DataQuery buildDataQuerySelection(String dataRowIds, String callerSelection,
-            String[] callerSelectionArgs) {
+    private DataQuery buildDataQuerySelection(
+            String dataRowIds, String callerSelection, String[] callerSelectionArgs) {
         String[] dataIds = dataRowIds.split(",");
         StringBuilder inClause = new StringBuilder();
         for (int i = 0; i < dataIds.length; i++) {
@@ -260,7 +270,11 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
         if (callerSelectionArgs != null) {
             finalSelectionArgs = new String[dataIds.length + callerSelectionArgs.length];
             System.arraycopy(dataIds, 0, finalSelectionArgs, 0, dataIds.length);
-            System.arraycopy(callerSelectionArgs, 0, finalSelectionArgs, dataIds.length,
+            System.arraycopy(
+                    callerSelectionArgs,
+                    0,
+                    finalSelectionArgs,
+                    dataIds.length,
                     callerSelectionArgs.length);
         } else {
             finalSelectionArgs = dataIds;
@@ -286,8 +300,11 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
             try {
                 Long.parseLong(id.trim());
             } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Invalid dataRowIds format: " + dataRowIds
-                        + ". Must be comma-separated longs.", e);
+                throw new IllegalArgumentException(
+                        "Invalid dataRowIds format: "
+                                + dataRowIds
+                                + ". Must be comma-separated longs.",
+                        e);
             }
         }
 
@@ -302,12 +319,11 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
         }
     }
 
-    /**
-     * Deletes sessions that are older than 24 hours from the database.
-     */
+    /** Deletes sessions that are older than 24 hours from the database. */
     private void cleanupStaleSessions() {
-        long expirationTimestamp = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(
-                ContactsPickerWorkScheduler.CLEANUP_INTERVAL_DAYS);
+        long expirationTimestamp =
+                System.currentTimeMillis()
+                        - TimeUnit.DAYS.toMillis(ContactsPickerJobScheduler.CLEANUP_INTERVAL_DAYS);
         String selection = SessionColumns.CREATED_AT + " <= ?";
         String[] selectionArgs = {String.valueOf(expirationTimestamp)};
         SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
