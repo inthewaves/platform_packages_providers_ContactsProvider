@@ -29,6 +29,7 @@ import android.provider.ContactsPickerSessionContract;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.providers.contacts.picker.ContactsPickerDatabaseHelper.SessionColumns;
 import com.android.providers.contacts.picker.ContactsPickerDatabaseHelper.Tables;
 
@@ -43,7 +44,7 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Sessions older than 24 hours are automatically cleaned up by a daily job.
  */
-public final class ContactsPickerSessionProvider extends ContentProvider {
+public class ContactsPickerSessionProvider extends ContentProvider {
 
     private static final String TAG = "ContactsPickerSession";
     private static final boolean VERBOSE_LOGGING = Log.isLoggable(TAG, Log.VERBOSE);
@@ -65,8 +66,13 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
     @Override
     public boolean onCreate() {
         mDatabaseHelper = ContactsPickerDatabaseHelper.getInstance(getContext());
-        ContactsPickerJobScheduler.scheduleCleanupJob(getContext());
+        scheduleCleanupJob();
         return true;
+    }
+
+    @VisibleForTesting
+    protected void scheduleCleanupJob() {
+        ContactsPickerJobScheduler.scheduleCleanupJob(getContext());
     }
 
     @Override
@@ -284,7 +290,6 @@ public final class ContactsPickerSessionProvider extends ContentProvider {
         return new DataQuery(finalSelection, finalSelectionArgs);
     }
 
-    // TODO(b/456723413): Finalize validation logic.
     private void validateContentValues(ContentValues values) {
         if (values == null) {
             throw new IllegalArgumentException("Insert operation failed: ContentValues is null.");
