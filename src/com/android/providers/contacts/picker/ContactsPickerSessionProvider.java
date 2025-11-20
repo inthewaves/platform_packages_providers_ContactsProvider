@@ -263,30 +263,24 @@ public class ContactsPickerSessionProvider extends ContentProvider {
 
     private DataQuery buildDataQuerySelection(
             String dataRowIds, String callerSelection, String[] callerSelectionArgs) {
-        String[] dataIds = dataRowIds.split(",");
-        StringBuilder inClause = new StringBuilder();
-        for (int i = 0; i < dataIds.length; i++) {
-            inClause.append(i == 0 ? "?" : ",?");
-        }
 
-        String finalSelection = Data._ID + " IN (" + inClause + ")";
+        String jsonArrayString = "[" + dataRowIds + "]";
+        String finalSelection = Data._ID + " IN (SELECT value FROM json_each(?))";
+
         if (!TextUtils.isEmpty(callerSelection)) {
             finalSelection += " AND (" + callerSelection + ")";
         }
 
         String[] finalSelectionArgs;
         if (callerSelectionArgs != null) {
-            finalSelectionArgs = new String[dataIds.length + callerSelectionArgs.length];
-            System.arraycopy(dataIds, 0, finalSelectionArgs, 0, dataIds.length);
+            finalSelectionArgs = new String[1 + callerSelectionArgs.length];
+            finalSelectionArgs[0] = jsonArrayString;
             System.arraycopy(
-                    callerSelectionArgs,
-                    0,
-                    finalSelectionArgs,
-                    dataIds.length,
-                    callerSelectionArgs.length);
+                    callerSelectionArgs, 0, finalSelectionArgs, 1, callerSelectionArgs.length);
         } else {
-            finalSelectionArgs = dataIds;
+            finalSelectionArgs = new String[] {jsonArrayString};
         }
+
         return new DataQuery(finalSelection, finalSelectionArgs);
     }
 
