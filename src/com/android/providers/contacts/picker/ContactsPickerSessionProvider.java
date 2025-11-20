@@ -293,20 +293,33 @@ public class ContactsPickerSessionProvider extends ContentProvider {
                 values.getAsString(ContactsPickerSessionContract.Session.CONTACT_DATA_IDS);
         if (TextUtils.isEmpty(contactDataIds)) {
             throw new IllegalArgumentException(
-                    "Insert operation failed: Contact 'data_ids' is missing or empty.");
+                    "Insert operation failed: Contact 'data_ids' is empty.");
         }
 
         // Validate that contact data ids are comma-separated long integers
         String[] ids = contactDataIds.split(",");
+        if (ids.length == 0) {
+            throw new IllegalArgumentException(
+                    "Insert operation failed: Contact 'data_ids' is empty.");
+        }
         for (String id : ids) {
-            try {
-                Long.parseLong(id.trim());
-            } catch (NumberFormatException e) {
+            String trimmedId = id.trim();
+            if (!trimmedId.isEmpty()) {
+                try {
+                    Long.parseLong(trimmedId);
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(
+                            "Invalid contact 'data_ids' format: "
+                                    + contactDataIds
+                                    + ". Must be comma-separated longs.",
+                            e);
+                }
+            } else {
+                // Throw exception for empty strings between commas
                 throw new IllegalArgumentException(
                         "Invalid contact 'data_ids' format: "
                                 + contactDataIds
-                                + ". Must be comma-separated longs.",
-                        e);
+                                + ". Empty string between commas not allowed.");
             }
         }
 
