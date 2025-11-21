@@ -1062,7 +1062,7 @@ public class CallLogProvider extends ContentProvider {
                 mVoicemailPermissions.callerHasReadAccess(getCallingPackage());
         final SQLiteDatabase db = mDbHelper.getWritableDatabase();
         final int matchedUriId = sURIMatcher.match(uri);
-        boolean callLogsFeatureV2Flag = Flags.integratedCallLogsStage2();
+        boolean callLogsFeatureV2Flag = android.telecom.flags.Flags.integratedCallLogsStage2();
         switch (matchedUriId) {
             case CALLS:
                 boolean includesVoipEntries = callLogsFeatureV2Flag && includesVoipEntries(uri,
