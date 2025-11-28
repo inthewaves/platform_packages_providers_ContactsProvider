@@ -293,14 +293,18 @@ public class ContactsPickerSessionProvider extends ContentProvider {
                 values.getAsString(ContactsPickerSessionContract.Session.CONTACT_DATA_IDS);
         if (TextUtils.isEmpty(contactDataIds)) {
             throw new IllegalArgumentException(
-                    "Insert operation failed: Contact 'data_ids' is empty.");
+                    "Insert operation failed: "
+                            + ContactsPickerSessionContract.Session.CONTACT_DATA_IDS
+                            + " is empty.");
         }
 
         // Validate that contact data ids are comma-separated long integers
         String[] ids = contactDataIds.split(",");
         if (ids.length == 0) {
             throw new IllegalArgumentException(
-                    "Insert operation failed: Contact 'data_ids' is empty.");
+                    "Insert operation failed: "
+                            + ContactsPickerSessionContract.Session.CONTACT_DATA_IDS
+                            + " is empty.");
         }
         for (String id : ids) {
             String trimmedId = id.trim();
@@ -309,30 +313,34 @@ public class ContactsPickerSessionProvider extends ContentProvider {
                     Long.parseLong(trimmedId);
                 } catch (NumberFormatException e) {
                     throw new IllegalArgumentException(
-                            "Invalid contact 'data_ids' format: "
-                                    + contactDataIds
-                                    + ". Must be comma-separated longs.",
+                            "Insert operation failed:"
+                                    + ContactsPickerSessionContract.Session.CONTACT_DATA_IDS
+                                    + " must be comma-separated longs.",
                             e);
                 }
             } else {
                 // Throw exception for empty strings between commas
                 throw new IllegalArgumentException(
-                        "Invalid contact 'data_ids' format: "
-                                + contactDataIds
-                                + ". Empty string between commas not allowed.");
+                        "Insert operation failed: In "
+                                + ContactsPickerSessionContract.Session.CONTACT_DATA_IDS
+                                + ", empty string between commas is not allowed.");
             }
         }
 
         if (!values.containsKey(ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID)) {
             throw new IllegalArgumentException(
-                    "Insert operation failed: 'requester_uid' is missing.");
+                    "Insert operation failed: "
+                            + ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID
+                            + " is missing.");
         }
 
         Integer sessionRequesterUid =
                 values.getAsInteger(ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID);
         if (sessionRequesterUid == null) {
             throw new IllegalArgumentException(
-                    "Insert operation failed: 'requester_uid' cannot be null.");
+                    "Insert operation failed: "
+                            + ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID
+                            + " cannot be null.");
         }
     }
 

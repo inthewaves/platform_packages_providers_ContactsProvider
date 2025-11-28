@@ -85,7 +85,6 @@ public class FakeContactsProvider extends ContentProvider {
                 }
             }
 
-
             // Check for MIME type filter, which would be the last argument if present
             if (selection != null && selection.contains(Data.MIMETYPE + " = ?")) {
                 targetMimeType = selectionArgs[selectionArgs.length - 1];
