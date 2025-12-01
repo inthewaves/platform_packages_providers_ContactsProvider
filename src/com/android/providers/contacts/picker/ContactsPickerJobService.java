@@ -20,6 +20,8 @@ import android.app.job.JobService;
 import android.provider.ContactsPickerSessionContract;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -28,40 +30,57 @@ public class ContactsPickerJobService extends JobService {
     private static final String TAG = "ContactsPickerJob";
     private static final boolean VERBOSE_LOGGING = Log.isLoggable(TAG, Log.VERBOSE);
     private static final String CLEANUP_METHOD = "cleanupStaleSessions";
-    private final ExecutorService mExecutorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService mExecutor;
+
+    public ContactsPickerJobService() {
+        this(Executors.newSingleThreadExecutor());
+    }
+
+    @VisibleForTesting
+    ContactsPickerJobService(ExecutorService executor) {
+        mExecutor = executor;
+    }
 
     @Override
     public boolean onStartJob(JobParameters params) {
-        mExecutorService.execute(
+        mExecutor.execute(
                 () -> {
+                    boolean wantsReschedule = false;
                     try {
-                        Log.i(TAG, "Starting cleanup of stale contacts picker sessions.");
-                        getContentResolver()
-                                .call(
-                                        ContactsPickerSessionContract.AUTHORITY_URI,
-                                        CLEANUP_METHOD,
-                                        null,
-                                        null);
-                        if (VERBOSE_LOGGING) {
-                            Log.d(TAG, "Cleanup task finished call to provider");
-                        }
-                        jobFinished(params, /* wantsReschedule= */ false);
+                        cleanupSessions();
                     } catch (Exception e) {
                         Log.e(TAG, "Exception during cleanup task", e);
-                        jobFinished(params, /* wantsReschedule= */ true);
+                        wantsReschedule = true;
                     }
+                    callJobFinished(params, wantsReschedule);
                 });
         return true;
     }
 
     @Override
     public boolean onStopJob(JobParameters params) {
+        // Return true to indicate we'd like to be rescheduled if stopped abruptly
         return true;
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        mExecutorService.shutdown();
+        mExecutor.shutdown();
+    }
+
+    @VisibleForTesting
+    protected void cleanupSessions() {
+        Log.i(TAG, "Starting cleanup of stale contacts picker sessions.");
+        getContentResolver()
+                .call(ContactsPickerSessionContract.AUTHORITY_URI, CLEANUP_METHOD, null, null);
+        if (VERBOSE_LOGGING) {
+            Log.d(TAG, "Cleanup task finished call to provider");
+        }
+    }
+
+    @VisibleForTesting
+    protected void callJobFinished(JobParameters params, boolean wantsReschedule) {
+        jobFinished(params, wantsReschedule);
     }
 }

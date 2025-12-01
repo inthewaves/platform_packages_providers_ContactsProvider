@@ -73,34 +73,46 @@ public class FakeContactsProvider extends ContentProvider {
 
         Set<String> allowedIds = new HashSet<>();
         String targetMimeType = null;
-        int numIds = selectionArgs.length;
 
-        if (selection != null && selection.contains(Data.MIMETYPE + " = ?")) {
-            targetMimeType = selectionArgs[selectionArgs.length - 1];
-            numIds = selectionArgs.length - 1;
-        }
+        // Parse the dataRowIds from the JSON array string in selectionArgs[0]
+        if (selectionArgs != null && selectionArgs.length > 0) {
+            String jsonArrayString = selectionArgs[0];
+            // Remove brackets and split by comma to get individual ID strings
+            String[] ids = jsonArrayString.replace("[", "").replace("]", "").split(",");
+            for (String id : ids) {
+                if (!id.trim().isEmpty()) {
+                    allowedIds.add(id.trim());
+                }
+            }
 
-        for (int i = 0; i < numIds; i++) {
-            allowedIds.add(selectionArgs[i]);
+            // Check for MIME type filter, which would be the last argument if present
+            if (selection != null && selection.contains(Data.MIMETYPE + " = ?")) {
+                targetMimeType = selectionArgs[selectionArgs.length - 1];
+            }
+        } else {
+            // If no selectionArgs are provided, no IDs are specified to filter by.
+            // In this mock, we return an empty cursor as a result.
+            return cursor;
         }
 
         for (ContentValues values : mData.values()) {
             String currentId = values.getAsString(Data._ID);
-            if (!allowedIds.contains(currentId)) {
-                continue;
-            }
-
-            if (targetMimeType != null) {
-                if (!targetMimeType.equals(values.getAsString(Data.MIMETYPE))) {
-                    continue;
+            if (allowedIds.contains(currentId)) {
+                if (targetMimeType != null) {
+                    if (!targetMimeType.equals(values.getAsString(Data.MIMETYPE))) {
+                        continue;
+                    }
                 }
+                Object[] row = new Object[projection.length];
+                for (int i = 0; i < projection.length; i++) {
+                    if (values.containsKey(projection[i])) {
+                        row[i] = values.get(projection[i]);
+                    } else {
+                        row[i] = null; // Handle non-existent columns in projection
+                    }
+                }
+                cursor.addRow(row);
             }
-
-            Object[] row = new Object[projection.length];
-            for (int i = 0; i < projection.length; i++) {
-                row[i] = values.get(projection[i]);
-            }
-            cursor.addRow(row);
         }
         Log.d(
                 TAG,

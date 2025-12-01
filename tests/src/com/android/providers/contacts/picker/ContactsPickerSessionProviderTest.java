@@ -111,6 +111,22 @@ public class ContactsPickerSessionProviderTest
                 () -> mMockContentResolver.insert(Session.CONTENT_URI, values));
     }
 
+    public void testInsert_dataRowIdsWithEmptyString_throwsException() {
+        ContentValues values = createSessionValues("1,,2", CALLER_UID);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> mMockContentResolver.insert(Session.CONTENT_URI, values));
+    }
+
+    public void testInsert_dataRowIdsWithOnlyComma_throwsException() {
+        ContentValues values = createSessionValues(",", CALLER_UID);
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> mMockContentResolver.insert(Session.CONTENT_URI, values));
+    }
+
     public void testInsert_invalidDataRowIdsFormat_throwsException() {
         ContentValues values = createSessionValues("1,2,a", CALLER_UID);
 
@@ -123,6 +139,34 @@ public class ContactsPickerSessionProviderTest
         ContentValues values = createSessionValues(" 1 , 2 ", CALLER_UID);
         Uri sessionUri = mMockContentResolver.insert(Session.CONTENT_URI, values);
         assertNotNull(sessionUri);
+    }
+
+    public void testInsert_onlyCommas_throwsException() {
+        ContentValues values = createSessionValues(",,", CALLER_UID);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> mMockContentResolver.insert(Session.CONTENT_URI, values));
+    }
+
+    public void testInsert_spacesAndCommas_throwsException() {
+        ContentValues values = createSessionValues(" , , ", CALLER_UID);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> mMockContentResolver.insert(Session.CONTENT_URI, values));
+    }
+
+    public void testInsert_onlySpace_throwsException() {
+        ContentValues values = createSessionValues(" ", CALLER_UID);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> mMockContentResolver.insert(Session.CONTENT_URI, values));
+    }
+
+    public void testInsert_validAndEmpty_throwsException() {
+        ContentValues values = createSessionValues("1, ,3", CALLER_UID);
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> mMockContentResolver.insert(Session.CONTENT_URI, values));
     }
 
     public void testInsert_missingCallerUid_throwsException() {

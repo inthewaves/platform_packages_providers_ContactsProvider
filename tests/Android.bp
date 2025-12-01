@@ -20,6 +20,7 @@ android_test {
         "telecom-util-lib",
         "StatsdTestUtils",
         "statsdprotolite",
+        "compatibility-device-util-axt",
     ],
     libs: [
         "android.test.runner.stubs.system",

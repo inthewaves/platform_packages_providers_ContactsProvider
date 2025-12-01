@@ -27,10 +27,9 @@ import java.util.concurrent.TimeUnit;
 public class ContactsPickerJobScheduler {
     private static final String TAG = "ContactsPickerJob";
     private static final boolean VERBOSE_LOGGING = Log.isLoggable(TAG, Log.VERBOSE);
-    private static final int CLEANUP_JOB_ID = 1;
 
-    /** The interval for the cleanup job in days. */
-    public static final int CLEANUP_INTERVAL_DAYS = 1;
+    static final int CLEANUP_JOB_ID = 1;
+    static final int CLEANUP_INTERVAL_DAYS = 1;
 
     /**
      * Schedules a periodic job to clean up stale contacts picker sessions.

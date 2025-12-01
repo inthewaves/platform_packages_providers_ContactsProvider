@@ -263,30 +263,24 @@ public class ContactsPickerSessionProvider extends ContentProvider {
 
     private DataQuery buildDataQuerySelection(
             String dataRowIds, String callerSelection, String[] callerSelectionArgs) {
-        String[] dataIds = dataRowIds.split(",");
-        StringBuilder inClause = new StringBuilder();
-        for (int i = 0; i < dataIds.length; i++) {
-            inClause.append(i == 0 ? "?" : ",?");
-        }
 
-        String finalSelection = Data._ID + " IN (" + inClause + ")";
+        String jsonArrayString = "[" + dataRowIds + "]";
+        String finalSelection = Data._ID + " IN (SELECT value FROM json_each(?))";
+
         if (!TextUtils.isEmpty(callerSelection)) {
             finalSelection += " AND (" + callerSelection + ")";
         }
 
         String[] finalSelectionArgs;
         if (callerSelectionArgs != null) {
-            finalSelectionArgs = new String[dataIds.length + callerSelectionArgs.length];
-            System.arraycopy(dataIds, 0, finalSelectionArgs, 0, dataIds.length);
+            finalSelectionArgs = new String[1 + callerSelectionArgs.length];
+            finalSelectionArgs[0] = jsonArrayString;
             System.arraycopy(
-                    callerSelectionArgs,
-                    0,
-                    finalSelectionArgs,
-                    dataIds.length,
-                    callerSelectionArgs.length);
+                    callerSelectionArgs, 0, finalSelectionArgs, 1, callerSelectionArgs.length);
         } else {
-            finalSelectionArgs = dataIds;
+            finalSelectionArgs = new String[] {jsonArrayString};
         }
+
         return new DataQuery(finalSelection, finalSelectionArgs);
     }
 
@@ -299,33 +293,54 @@ public class ContactsPickerSessionProvider extends ContentProvider {
                 values.getAsString(ContactsPickerSessionContract.Session.CONTACT_DATA_IDS);
         if (TextUtils.isEmpty(contactDataIds)) {
             throw new IllegalArgumentException(
-                    "Insert operation failed: Contact 'data_ids' is missing or empty.");
+                    "Insert operation failed: "
+                            + ContactsPickerSessionContract.Session.CONTACT_DATA_IDS
+                            + " is empty.");
         }
 
         // Validate that contact data ids are comma-separated long integers
         String[] ids = contactDataIds.split(",");
+        if (ids.length == 0) {
+            throw new IllegalArgumentException(
+                    "Insert operation failed: "
+                            + ContactsPickerSessionContract.Session.CONTACT_DATA_IDS
+                            + " is empty.");
+        }
         for (String id : ids) {
-            try {
-                Long.parseLong(id.trim());
-            } catch (NumberFormatException e) {
+            String trimmedId = id.trim();
+            if (!trimmedId.isEmpty()) {
+                try {
+                    Long.parseLong(trimmedId);
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException(
+                            "Insert operation failed:"
+                                    + ContactsPickerSessionContract.Session.CONTACT_DATA_IDS
+                                    + " must be comma-separated longs.",
+                            e);
+                }
+            } else {
+                // Throw exception for empty strings between commas
                 throw new IllegalArgumentException(
-                        "Invalid contact 'data_ids' format: "
-                                + contactDataIds
-                                + ". Must be comma-separated longs.",
-                        e);
+                        "Insert operation failed: In "
+                                + ContactsPickerSessionContract.Session.CONTACT_DATA_IDS
+                                + ", empty string between commas is not allowed.");
             }
         }
 
         if (!values.containsKey(ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID)) {
             throw new IllegalArgumentException(
-                    "Insert operation failed: 'requester_uid' is missing.");
+                    "Insert operation failed: "
+                            + ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID
+                            + " is missing.");
         }
 
         Integer sessionRequesterUid =
                 values.getAsInteger(ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID);
         if (sessionRequesterUid == null) {
             throw new IllegalArgumentException(
-                    "Insert operation failed: 'requester_uid' cannot be null.");
+                    "Insert operation failed: "
+                            + ContactsPickerSessionContract.Session.SESSION_REQUESTER_UID
+                            + " cannot be null.");
         }
     }
 
