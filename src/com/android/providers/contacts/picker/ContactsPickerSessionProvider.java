@@ -90,6 +90,9 @@ public class ContactsPickerSessionProvider extends ContentProvider {
 
         final String sessionUid = UUID.randomUUID().toString();
 
+        // App A (Picker) inserts the session on behalf of App B (Requester).
+        // We trust the value in KEY_SESSION_REQUESTER_UID because this method
+        // is protected by a signature permission in the Manifest.
         ContentValues valuesToInsert = new ContentValues();
         valuesToInsert.put(
                 SessionColumns.DATA_ROW_IDS,
@@ -228,6 +231,7 @@ public class ContactsPickerSessionProvider extends ContentProvider {
             return null;
         }
 
+        // Verify that the caller (App B) matches the UID stored during insert.
         final int callingUid = Binder.getCallingUid();
         if (sessionData.callerUid != callingUid) {
             throw new SecurityException(
@@ -241,14 +245,31 @@ public class ContactsPickerSessionProvider extends ContentProvider {
 
         DataQuery dataQuery =
                 buildDataQuerySelection(sessionData.dataRowIds, selection, selectionArgs);
-        return getContext()
-                .getContentResolver()
-                .query(
-                        Data.CONTENT_URI,
-                        projection,
-                        dataQuery.selection,
-                        dataQuery.selectionArgs,
-                        sortOrder);
+
+        // Calling identity must be cleared to query ContactsContract.Data using this provider's
+        // identity.
+        //
+        // This is necessary for two reasons:
+        // 1. Package Mismatch: ContactsProvider verifies that the Calling UID owns the Calling
+        //    Package. Without clearing, it sees the Client's UID (App B) but this Provider's
+        //    Package, causing a SecurityException ("Package ... does not belong to ...").
+        //
+        // 2. Permissions: The Client app does not need to have READ_CONTACTS permission. This
+        //    provider acts as a privileged proxy, fetching the data on the client's behalf only
+        //    after verifying that the client owns this specific session.
+        final long token = Binder.clearCallingIdentity();
+        try {
+            return getContext()
+                    .getContentResolver()
+                    .query(
+                            Data.CONTENT_URI,
+                            projection,
+                            dataQuery.selection,
+                            dataQuery.selectionArgs,
+                            sortOrder);
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
     }
 
     private static class DataQuery {
@@ -319,7 +340,6 @@ public class ContactsPickerSessionProvider extends ContentProvider {
                             e);
                 }
             } else {
-                // Throw exception for empty strings between commas
                 throw new IllegalArgumentException(
                         "Insert operation failed: In "
                                 + ContactsPickerSessionContract.Session.CONTACT_DATA_IDS
