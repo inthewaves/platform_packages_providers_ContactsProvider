@@ -202,9 +202,24 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
                 = mCallLogProvider.getCallLogDatabaseHelperForTest();
 
         // Mock SubscriptionManager
-        SubscriptionInfo subscriptionInfo = new SubscriptionInfo(
-                TEST_PHONE_ACCOUNT_HANDLE_SUB_ID_INT, TEST_PHONE_ACCOUNT_HANDLE_ICC_ID1,
-                        1, "a", "b", 1, 1, "test", 1, null, null, null, null, false, null, null);
+        SubscriptionInfo subscriptionInfo = new SubscriptionInfo.Builder()
+                .setId(TEST_PHONE_ACCOUNT_HANDLE_SUB_ID_INT)
+                .setIccId(TEST_PHONE_ACCOUNT_HANDLE_ICC_ID1)
+                .setSimSlotIndex(1)
+                .setDisplayName("a")
+                .setCarrierName("b")
+                .setDisplayNameSource(1)
+                .setIconTint(1)
+                .setNumber("test")
+                .setDataRoaming(1)
+                .setIcon(null)
+                .setMcc(null)
+                .setMnc(null)
+                .setCountryIso(null)
+                .setEmbedded(false)
+                .setNativeAccessRules(null)
+                .setCardString(null)
+                .build();
         when(mSubscriptionManager.getActiveSubscriptionInfo(
                 eq(TEST_PHONE_ACCOUNT_HANDLE_SUB_ID_INT))).thenReturn(subscriptionInfo);
 
@@ -276,9 +291,24 @@ public class CallLogProviderTest extends BaseContactsProvider2Test {
                 = mCallLogProvider.getCallLogDatabaseHelperForTest();
 
         // Mock SubscriptionManager
-        SubscriptionInfo subscriptionInfo = new SubscriptionInfo(
-                TEST_PHONE_ACCOUNT_HANDLE_SUB_ID_INT, TEST_PHONE_ACCOUNT_HANDLE_ICC_ID1,
-                        1, "a", "b", 1, 1, "test", 1, null, null, null, null, false, null, null);
+        SubscriptionInfo subscriptionInfo = new SubscriptionInfo.Builder()
+                .setId(TEST_PHONE_ACCOUNT_HANDLE_SUB_ID_INT)
+                .setIccId(TEST_PHONE_ACCOUNT_HANDLE_ICC_ID1)
+                .setSimSlotIndex(1)
+                .setDisplayName("a")
+                .setCarrierName("b")
+                .setDisplayNameSource(1)
+                .setIconTint(1)
+                .setNumber("test")
+                .setDataRoaming(1)
+                .setIcon(null)
+                .setMcc(null)
+                .setMnc(null)
+                .setCountryIso(null)
+                .setEmbedded(false)
+                .setNativeAccessRules(null)
+                .setCardString(null)
+                .build();
         List<SubscriptionInfo> subscriptionInfoList = new ArrayList<>();
         subscriptionInfoList.add(subscriptionInfo);
         when(mSubscriptionManager.getAllSubscriptionInfoList()).thenReturn(subscriptionInfoList);
