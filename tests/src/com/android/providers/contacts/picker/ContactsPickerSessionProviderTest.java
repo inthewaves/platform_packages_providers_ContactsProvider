@@ -23,6 +23,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Binder;
+import android.os.SystemClock;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.Data;
 import android.provider.ContactsPickerSessionContract;
@@ -57,9 +58,20 @@ public class ContactsPickerSessionProviderTest
      */
     public static class TestableContactsPickerSessionProvider
             extends ContactsPickerSessionProvider {
+        private int mMaxSessionCount = super.getMaxSessionCount();
+
         @Override
         protected void scheduleCleanupJob() {
             // This is a no-op for tests to prevent the JobScheduler from being called.
+        }
+
+        @Override
+        protected int getMaxSessionCount() {
+            return mMaxSessionCount;
+        }
+
+        void setMaxSessionCount(int maxSessionCount) {
+            mMaxSessionCount = maxSessionCount;
         }
     }
 
@@ -167,6 +179,51 @@ public class ContactsPickerSessionProviderTest
         assertThrows(
                 IllegalArgumentException.class,
                 () -> mMockContentResolver.insert(Session.CONTENT_URI, values));
+    }
+
+    public void testInsert_maxSessionLimitReached_removesOldestSession() {
+        getProvider().setMaxSessionCount(5);
+
+        // Insert 5 sessions
+        for (int i = 0; i < 5; i++) {
+            ContentValues values = createSessionValues(String.valueOf(i), CALLER_UID);
+            mMockContentResolver.insert(Session.CONTENT_URI, values);
+            // Sleep briefly to ensure timestamps are different
+            SystemClock.sleep(20);
+        }
+
+        // Verify we have 5 sessions
+        SQLiteDatabase db = mDbHelper.getReadableDatabase();
+        assertEquals(5, android.database.DatabaseUtils.queryNumEntries(db, Tables.SESSIONS));
+
+        // Get the ID of the oldest session (should be the first one inserted)
+        Cursor cursor = db.query(Tables.SESSIONS, new String[]{SessionColumns._ID}, null, null,
+                null, null, SessionColumns.CREATED_AT + " ASC", " 1");
+        assertTrue(cursor.moveToFirst());
+        long oldestId = cursor.getLong(0);
+        cursor.close();
+
+        // Insert one more session
+        ContentValues newValues = createSessionValues("5001", CALLER_UID);
+        Uri newSessionUri = mMockContentResolver.insert(Session.CONTENT_URI, newValues);
+        assertNotNull(newSessionUri);
+
+        // Verify we still have 5 sessions
+        assertEquals(5, android.database.DatabaseUtils.queryNumEntries(db, Tables.SESSIONS));
+
+        // Verify the oldest session was removed
+        Cursor oldSessionCursor = db.query(Tables.SESSIONS, new String[]{SessionColumns._ID},
+                SessionColumns._ID + " = ?", new String[]{String.valueOf(oldestId)},
+                null, null, null);
+        assertEquals(0, oldSessionCursor.getCount());
+        oldSessionCursor.close();
+
+        // Verify the new session exists
+        String newSessionUid = newSessionUri.getLastPathSegment();
+        Cursor newSessionCursor = db.query(Tables.SESSIONS, new String[]{SessionColumns._ID},
+                SessionColumns.SESSION_UID + " = ?", new String[]{newSessionUid}, null, null, null);
+        assertEquals(1, newSessionCursor.getCount());
+        newSessionCursor.close();
     }
 
     public void testInsert_missingCallerUid_throwsException() {
