@@ -24,7 +24,7 @@ import android.provider.BaseColumns;
 /** Database helper for managing the contacts picker sessions. */
 class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
 
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2;
     private static final String DATABASE_NAME = "contact_picker_sessions.db";
     private static final Object SINGLETON_LOCK = new Object();
 
@@ -38,6 +38,13 @@ class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
         String CALLER_UID = "caller_uid";
         String CREATED_AT = "created_at";
     }
+
+    private static final String CREATE_SESSIONS_CREATED_AT_INDEX_SQL =
+            "CREATE INDEX sessions_created_at_index ON "
+                    + Tables.SESSIONS
+                    + " ("
+                    + SessionColumns.CREATED_AT
+                    + ")";
 
     private static volatile ContactsPickerDatabaseHelper sInstance;
 
@@ -81,10 +88,13 @@ class ContactsPickerDatabaseHelper extends SQLiteOpenHelper {
                         + SessionColumns.CREATED_AT
                         + " INTEGER NOT NULL"
                         + ")");
+        db.execSQL(CREATE_SESSIONS_CREATED_AT_INDEX_SQL);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Nothing to do here, still on version 1.
+        if (oldVersion < 2) {
+            db.execSQL(CREATE_SESSIONS_CREATED_AT_INDEX_SQL);
+        }
     }
 }

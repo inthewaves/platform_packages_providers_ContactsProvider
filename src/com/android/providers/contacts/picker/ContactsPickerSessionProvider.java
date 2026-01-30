@@ -20,6 +20,7 @@ import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.UriMatcher;
 import android.database.Cursor;
+import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 import android.os.Binder;
@@ -48,6 +49,12 @@ public class ContactsPickerSessionProvider extends ContentProvider {
 
     private static final String TAG = "ContactsPickerSession";
     private static final boolean VERBOSE_LOGGING = Log.isLoggable(TAG, Log.VERBOSE);
+    private static final int MAX_SESSION_COUNT = 5000;
+
+    @VisibleForTesting
+    protected int getMaxSessionCount() {
+        return MAX_SESSION_COUNT;
+    }
 
     private static final int URI_MATCH_SESSIONS_BASE = 1;
     private static final int URI_MATCH_SESSION_ID = 2;
@@ -104,7 +111,18 @@ public class ContactsPickerSessionProvider extends ContentProvider {
         valuesToInsert.put(SessionColumns.CREATED_AT, System.currentTimeMillis());
 
         final SQLiteDatabase db = mDatabaseHelper.getWritableDatabase();
-        final long rowId = db.insert(Tables.SESSIONS, null, valuesToInsert);
+        long rowId;
+        db.beginTransaction();
+        try {
+            pruneOldSessionsIfLimitReached(db);
+            rowId = db.insert(Tables.SESSIONS, null, valuesToInsert);
+            if (rowId > 0) {
+                db.setTransactionSuccessful();
+            }
+        } finally {
+            db.endTransaction();
+        }
+
         if (rowId <= 0) {
             Log.e(TAG, "Failed to insert session into database.");
             return null;
@@ -118,6 +136,33 @@ public class ContactsPickerSessionProvider extends ContentProvider {
         }
 
         return sessionUri;
+    }
+
+    private void pruneOldSessionsIfLimitReached(SQLiteDatabase db) {
+        int maxSessionCount = getMaxSessionCount();
+        long count = DatabaseUtils.queryNumEntries(db, Tables.SESSIONS);
+        if (count >= maxSessionCount) {
+            long numToDelete = count - maxSessionCount + 1;
+            String whereClause =
+                    SessionColumns._ID
+                            + " IN (SELECT "
+                            + SessionColumns._ID
+                            + " FROM "
+                            + Tables.SESSIONS
+                            + " ORDER BY "
+                            + SessionColumns.CREATED_AT
+                            + " ASC, "
+                            + SessionColumns._ID
+                            + " ASC LIMIT ?)";
+            int prunedCount =
+                    db.delete(
+                            Tables.SESSIONS,
+                            whereClause,
+                            new String[] {String.valueOf(numToDelete)});
+            if (VERBOSE_LOGGING) {
+                Log.d(TAG, "Pruned " + prunedCount + " old session(s) to maintain limit.");
+            }
+        }
     }
 
     @Override
