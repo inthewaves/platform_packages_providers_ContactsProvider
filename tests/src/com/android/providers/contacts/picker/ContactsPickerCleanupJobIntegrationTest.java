@@ -19,11 +19,15 @@ package com.android.providers.contacts.picker;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import android.app.job.JobScheduler;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.flags.Flags;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Process;
+import android.platform.test.annotations.RequiresFlagsEnabled;
+import android.platform.test.flag.junit.SetFlagsRule;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -33,6 +37,9 @@ import com.android.compatibility.common.util.SystemUtil;
 import com.android.providers.contacts.picker.ContactsPickerDatabaseHelper.SessionColumns;
 import com.android.providers.contacts.picker.ContactsPickerDatabaseHelper.Tables;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -43,10 +50,29 @@ import java.util.regex.Pattern;
 @RunWith(AndroidJUnit4.class)
 public class ContactsPickerCleanupJobIntegrationTest {
 
+    private Context mContext;
+
+    @Rule
+    public final SetFlagsRule mSetFlagsRule = new SetFlagsRule();
+
+    @Before
+    public void setUp() {
+        mContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        ContactsPickerJobScheduler.scheduleCleanupJob(mContext);
+    }
+
+    @After
+    public void tearDown() {
+        JobScheduler jobScheduler = mContext.getSystemService(JobScheduler.class);
+        if (jobScheduler != null) {
+            jobScheduler.cancel(ContactsPickerJobScheduler.CLEANUP_JOB_ID);
+        }
+    }
+
     @Test
+    @RequiresFlagsEnabled(Flags.FLAG_ENABLE_SYSTEM_CONTACTS_PICKER)
     public void testJobScheduler_executesCleanup_endToEnd() throws Exception {
-        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        ContactsPickerDatabaseHelper dbHelper = ContactsPickerDatabaseHelper.getInstance(context);
+        ContactsPickerDatabaseHelper dbHelper = ContactsPickerDatabaseHelper.getInstance(mContext);
         SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         // Insert a stale session (older than 24 hours)
@@ -58,7 +84,7 @@ public class ContactsPickerCleanupJobIntegrationTest {
 
         try {
             final int jobId = ContactsPickerJobScheduler.CLEANUP_JOB_ID;
-            String targetPackage = context.getPackageName();
+            String targetPackage = mContext.getPackageName();
             runJob(jobId, targetPackage);
 
             verifySessionDeleted(db, staleSessionId);
