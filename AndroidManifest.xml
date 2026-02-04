@@ -117,7 +117,8 @@
             android:writePermission="android.permission.MANAGE_CONTACTS_PICKER_SESSION"
             android:grantUriPermissions="true"
             android:featureFlag="android.content.flags.enable_system_contacts_picker"
-            android:exported="true">
+            android:exported="true"
+            android:visibleToInstantApps="true">
         </provider>
 
         <!-- Handles database upgrades after OTAs, then disables itself -->

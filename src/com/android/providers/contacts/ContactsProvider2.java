@@ -9374,19 +9374,36 @@ public class ContactsProvider2 extends AbstractContactsProvider
         final String mimeTypeIds = mDbHelper.get().getMimeTypeIdsAsString(mimeTypeArray);
 
         final StringBuilder subQuery = new StringBuilder();
-        if (requireAll) { // AND logic
-            subQuery.append("SELECT " + Data.CONTACT_ID + " FROM " + Views.DATA);
-            subQuery.append(" WHERE " + DataColumns.MIMETYPE_ID + " IN (" + mimeTypeIds + ")");
-            subQuery.append(" GROUP BY " + Data.CONTACT_ID);
-            subQuery.append(" HAVING COUNT(DISTINCT " + DataColumns.MIMETYPE_ID + ") = "
-                    + mimeTypeArray.length);
-        } else { // OR logic
-            subQuery.append("SELECT DISTINCT " + Data.CONTACT_ID + " FROM " + Views.DATA);
-            subQuery.append(
-                    " WHERE " + DataColumns.MIMETYPE_ID + " IN (" + mimeTypeIds.toString() + ")");
-        }
 
-        qb.appendWhere(Contacts._ID + " IN (" + subQuery.toString() + ")");
+        if (requireAll) { // AND logic: Optimized with nested EXISTS  See b/478851815.
+            for (int i = 0; i < mimeTypeArray.length; i++) {
+                if (i > 0) subQuery.append(" AND ");
+
+                long mimeTypeId = mDbHelper.get().getMimeTypeId(mimeTypeArray[i]);
+
+                subQuery.append("EXISTS (SELECT 1 FROM " + Tables.DATA);
+                subQuery.append(" JOIN " + Tables.RAW_CONTACTS + " ON ("
+                        + Tables.DATA + "." + Data.RAW_CONTACT_ID + "=" + Tables.RAW_CONTACTS + "."
+                        + RawContacts._ID + ")");
+                subQuery.append(" WHERE " + Tables.RAW_CONTACTS + "." + RawContacts.CONTACT_ID
+                        + "=" + Views.CONTACTS + "." + Contacts._ID);
+                subQuery.append(" AND " + DataColumns.MIMETYPE_ID + "=" + mimeTypeId + ")");
+            }
+            qb.appendWhere(subQuery.toString());
+
+        } else { // OR logic: Optimized with EXISTS  See b/478851815.
+            subQuery.append("EXISTS (SELECT 1 FROM " + Tables.DATA);
+            subQuery.append(" JOIN " + Tables.RAW_CONTACTS + " ON ("
+                    + Tables.DATA + "." + Data.RAW_CONTACT_ID + "=" + Tables.RAW_CONTACTS + "."
+                    + RawContacts._ID + ")");
+            subQuery.append(" WHERE " + Tables.RAW_CONTACTS + "." + RawContacts.CONTACT_ID
+                    + "=" + Views.CONTACTS + "." + Contacts._ID);
+            subQuery.append(
+                    " AND " + Tables.DATA + "." + DataColumns.MIMETYPE_ID + " IN (" + mimeTypeIds
+                            + "))");
+
+            qb.appendWhere(subQuery.toString());
+        }
     }
 
     private void setTablesAndProjectionMapForStreamItems(SQLiteQueryBuilder qb) {
