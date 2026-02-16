@@ -25,6 +25,7 @@ import static android.provider.Flags.newAccountAttributesApiEnabled;
 import static com.android.providers.contacts.flags.Flags.cp2SyncSearchIndexFlag;
 import static com.android.providers.contacts.flags.Flags.directoryProviderQueryPermissionCheck;
 import static com.android.providers.contacts.flags.Flags.disableCp2AccountMoveFlag;
+import static com.android.providers.contacts.flags.Flags.enforceStrictSqlChecks;
 import static com.android.providers.contacts.flags.Flags.insertAccountLogging;
 import static com.android.providers.contacts.flags.Flags.logCallMethod;
 import static com.android.providers.contacts.flags.Flags.restrictPiiDataUriColumns;
@@ -196,6 +197,7 @@ import com.android.providers.contacts.database.DeletedContactsTableUtil;
 import com.android.providers.contacts.database.MoreDatabaseUtils;
 import com.android.providers.contacts.enterprise.EnterpriseContactsCursorWrapper;
 import com.android.providers.contacts.enterprise.EnterprisePolicyGuard;
+import com.android.providers.contacts.picker.ContactsPickerSessionProvider;
 import com.android.providers.contacts.util.Clock;
 import com.android.providers.contacts.util.ContactsPermissions;
 import com.android.providers.contacts.util.DbQueryUtils;
@@ -7770,6 +7772,10 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 final String usageType = uri.getQueryParameter(DataUsageFeedback.USAGE_TYPE);
                 final int typeInt = getDataUsageFeedbackType(usageType, USAGE_TYPE_ALL);
                 setTablesAndProjectionMapForData(qb, uri, projection, false, typeInt);
+                if (canEnforceStrictSqlChecksForDataQueries()) {
+                    qb.setStrictColumns(true);
+                    qb.setStrictGrammar(true);
+                }
                 if (uri.getBooleanQueryParameter(Data.VISIBLE_CONTACTS_ONLY, false)) {
                     qb.appendWhere(" AND " + Data.CONTACT_ID + " in " +
                             Tables.DEFAULT_DIRECTORY);
@@ -7780,6 +7786,10 @@ public class ContactsProvider2 extends AbstractContactsProvider
             case DATA_ID:
             case PROFILE_DATA_ID: {
                 setTablesAndProjectionMapForData(qb, uri, projection, false);
+                if (canEnforceStrictSqlChecksForDataQueries()) {
+                    qb.setStrictColumns(true);
+                    qb.setStrictGrammar(true);
+                }
                 selectionArgs = insertSelectionArg(selectionArgs, uri.getLastPathSegment());
                 qb.appendWhere(" AND " + Data._ID + "=?");
                 break;
@@ -11178,5 +11188,23 @@ public class ContactsProvider2 extends AbstractContactsProvider
     private boolean isDataProjectionRestricted() {
         return restrictPiiDataUriColumns() && CompatChanges
                 .isChangeEnabled(ChangeIds.RESTRICT_DATA_URI_COLUMNS, Binder.getCallingUid());
+    }
+
+    @RequiresPermission(
+            allOf = {
+                    android.Manifest.permission.READ_COMPAT_CHANGE_CONFIG,
+                    android.Manifest.permission.LOG_COMPAT_CHANGE
+            })
+    // TODO(b/472490546): Enforce this check on other URIs as well.
+    private boolean canEnforceStrictSqlChecksForDataQueries() {
+        // Strict Sql checks can be enforced when either
+        // 1. Call is forwarded from SessionsProvider
+        // 2. The caller is another app (not cp2) not holding READ_CONTACTS + flag is enabled
+        // + caller is compatible with the change.
+        return ContactsPickerSessionProvider.sIsForwardedFromSessionsProvider.get()
+                || (getContext().checkCallingOrSelfPermission(READ_PERMISSION) != PERMISSION_GRANTED
+                && enforceStrictSqlChecks()
+                && CompatChanges
+                .isChangeEnabled(ChangeIds.ENFORCE_STRICT_SQL_CHECKS, Binder.getCallingUid()));
     }
 }

@@ -95,7 +95,7 @@ flag {
    name: "enforce_strict_sql_checks"
    namespace: "profile_experiences"
    description: "Enforces strict sql checks for callers without READ_CONTACTS permission"
-   bug: "465133716"
+   bug: "484953293"
    metadata {
        purpose: PURPOSE_BUGFIX
    }

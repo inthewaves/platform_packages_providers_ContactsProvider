@@ -33,7 +33,9 @@ import android.util.Log;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.providers.contacts.picker.ContactsPickerDatabaseHelper.SessionColumns;
 import com.android.providers.contacts.picker.ContactsPickerDatabaseHelper.Tables;
+import com.android.providers.contacts.util.UserUtils;
 
+import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -50,6 +52,10 @@ public class ContactsPickerSessionProvider extends ContentProvider {
     private static final String TAG = "ContactsPickerSession";
     private static final boolean VERBOSE_LOGGING = Log.isLoggable(TAG, Log.VERBOSE);
     private static final int MAX_SESSION_COUNT = 5000;
+
+    // Relays that the call is being forwarded to CP2 from sessions provider.
+    public static final ThreadLocal<Boolean> sIsForwardedFromSessionsProvider =
+            ThreadLocal.withInitial(() -> false);
 
     @VisibleForTesting
     protected int getMaxSessionCount() {
@@ -173,20 +179,30 @@ public class ContactsPickerSessionProvider extends ContentProvider {
             String[] selectionArgs,
             String sortOrder) {
         if (VERBOSE_LOGGING) {
-            Log.d(TAG, "query: uri=" + uri);
+            Log.v(TAG, "query: uri=" + uri + "  projection=" + Arrays.toString(projection)
+                    + "  selection=[" + selection + "]  args=" + Arrays.toString(selectionArgs)
+                    + "  order=[" + sortOrder + "] CPID=" + Binder.getCallingPid()
+                    + " CUID=" + Binder.getCallingUid()
+                    + " User=" + UserUtils.getCurrentUserHandle(getContext()));
         }
+        sIsForwardedFromSessionsProvider.set(true);
 
-        return switch (sUriMatcher.match(uri)) {
-            case URI_MATCH_SESSIONS_BASE -> {
-                if (VERBOSE_LOGGING) {
-                    Log.w(TAG, "Query on base URI not supported, no session ID provided: " + uri);
+        try {
+            return switch (sUriMatcher.match(uri)) {
+                case URI_MATCH_SESSIONS_BASE -> {
+                    if (VERBOSE_LOGGING) {
+                        Log.w(TAG,
+                                "Query on base URI not supported, no session ID provided: " + uri);
+                    }
+                    yield null; // No session ID provided
                 }
-                yield null; // No session ID provided
-            }
-            case URI_MATCH_SESSION_ID ->
-                    handleSessionIdQuery(uri, projection, selection, selectionArgs, sortOrder);
-            default -> throw new IllegalArgumentException("Unknown URI: " + uri);
-        };
+                case URI_MATCH_SESSION_ID -> handleSessionIdQuery(uri, projection, selection,
+                        selectionArgs, sortOrder);
+                default -> throw new IllegalArgumentException("Unknown URI: " + uri);
+            };
+        } finally {
+            sIsForwardedFromSessionsProvider.remove();
+        }
     }
 
     @Override
@@ -302,6 +318,14 @@ public class ContactsPickerSessionProvider extends ContentProvider {
         // 2. Permissions: The Client app does not need to have READ_CONTACTS permission. This
         //    provider acts as a privileged proxy, fetching the data on the client's behalf only
         //    after verifying that the client owns this specific session.
+        if (VERBOSE_LOGGING) {
+            Log.v(TAG, "query: uri=" + uri + "  projection=" + Arrays.toString(projection)
+                    + "  selection=[" + dataQuery.selection + "] "
+                    + "  args=" + Arrays.toString(dataQuery.selectionArgs)
+                    + "  order=[" + sortOrder + "] CPID=" + Binder.getCallingPid()
+                    + " CUID=" + Binder.getCallingUid()
+                    + " User=" + UserUtils.getCurrentUserHandle(getContext()));
+        }
         final long token = Binder.clearCallingIdentity();
         try {
             return getContext()
@@ -329,25 +353,19 @@ public class ContactsPickerSessionProvider extends ContentProvider {
 
     private DataQuery buildDataQuerySelection(
             String dataRowIds, String callerSelection, String[] callerSelectionArgs) {
+        // First add dataRowIds in the query.
+        // The only way to add dataRowIds in sessions table is via the insert() method. The latter
+        // ensures that dataRowIds are non-empty and formatted correctly, so we don't do any further
+        // massaging on same here.
+        StringBuilder sb = new StringBuilder();
+        sb.append(Data._ID).append(" IN (").append(dataRowIds).append(")");
 
-        String jsonArrayString = "[" + dataRowIds + "]";
-        String finalSelection = Data._ID + " IN (SELECT value FROM json_each(?))";
-
+        // Add callerSelection, if present
         if (!TextUtils.isEmpty(callerSelection)) {
-            finalSelection += " AND (" + callerSelection + ")";
+            sb.append(" AND (").append(callerSelection).append(")");
         }
 
-        String[] finalSelectionArgs;
-        if (callerSelectionArgs != null) {
-            finalSelectionArgs = new String[1 + callerSelectionArgs.length];
-            finalSelectionArgs[0] = jsonArrayString;
-            System.arraycopy(
-                    callerSelectionArgs, 0, finalSelectionArgs, 1, callerSelectionArgs.length);
-        } else {
-            finalSelectionArgs = new String[] {jsonArrayString};
-        }
-
-        return new DataQuery(finalSelection, finalSelectionArgs);
+        return new DataQuery(sb.toString(), callerSelectionArgs);
     }
 
     private void validateContentValues(ContentValues values) {
