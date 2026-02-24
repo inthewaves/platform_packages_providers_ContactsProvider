@@ -375,8 +375,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
     public static final int CONTACTS_ID_DISPLAY_PHOTO_CORP = 1028;
     public static final int CONTACTS_FILTER_ENTERPRISE = 1029;
     public static final int CONTACTS_ENTERPRISE = 1030;
-    private static final int CONTACTS_DATA = 1031;
-    private static final int CONTACTS_DATA_FILTER = 1032;
+    private static final int CONTACTS_MIMES = 1031;
+    private static final int CONTACTS_MIMES_FILTER = 1032;
 
     public static final int RAW_CONTACTS = 2002;
     public static final int RAW_CONTACTS_ID = 2003;
@@ -1278,9 +1278,9 @@ public class ContactsProvider2 extends AbstractContactsProvider
         matcher.addURI(ContactsContract.AUTHORITY, "contacts/filter_enterprise/*",
                 CONTACTS_FILTER_ENTERPRISE);
 
-        matcher.addURI(ContactsContract.AUTHORITY, "contacts_data", CONTACTS_DATA);
-        matcher.addURI(ContactsContract.AUTHORITY, "contacts_data/filter/*",
-                CONTACTS_DATA_FILTER);
+        matcher.addURI(ContactsContract.AUTHORITY, "contacts/mimes", CONTACTS_MIMES);
+        matcher.addURI(ContactsContract.AUTHORITY, "contacts/mimes/filter/*",
+                CONTACTS_MIMES_FILTER);
 
         matcher.addURI(ContactsContract.AUTHORITY, "raw_contacts", RAW_CONTACTS);
         matcher.addURI(ContactsContract.AUTHORITY, "raw_contacts/#", RAW_CONTACTS_ID);
@@ -6907,7 +6907,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 break;
             }
 
-            case CONTACTS_DATA: {
+            case CONTACTS_MIMES: {
                 // This URI is added for the system contacts picker. Restrict access to callers
                 // holding the MANAGE_CONTACTS_PICKER_SESSION permission to ensure only system
                 // components can use it.
@@ -6919,7 +6919,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 break;
             }
 
-            case CONTACTS_DATA_FILTER: {
+            case CONTACTS_MIMES_FILTER: {
                 // This URI is added for the system contacts picker. Restrict access to callers
                 // holding the MANAGE_CONTACTS_PICKER_SESSION permission to ensure only system
                 // components can use it.
