@@ -100,3 +100,12 @@ flag {
        purpose: PURPOSE_BUGFIX
    }
 }
+flag {
+    name: "enable_people_provider"
+    namespace: "contacts"
+    description: "Enables PeopleProvider so that it responds to queries"
+    bug: "461859503"
+    metadata {
+       purpose: PURPOSE_FEATURE
+   }
+}
