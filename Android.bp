@@ -42,6 +42,7 @@ android_app {
     },
     flags_packages: [
         "android.content.flags-aconfig",
+        "contactsprovider_flags",
     ],
 }
 

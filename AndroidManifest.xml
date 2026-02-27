@@ -70,6 +70,13 @@
             <grant-uri-permission android:pathPattern=".*" />
         </provider>
 
+        <provider android:name=".people.PeopleProvider"
+            android:authorities="people;com.android.people"
+            android:multiprocess="false"
+            android:exported="true"
+            android:featureFlag="com.android.providers.contacts.flags.enable_people_provider">
+        </provider>
+
         <provider android:name="CallLogProvider"
             android:authorities="call_log"
             android:syncable="false" android:multiprocess="false"
