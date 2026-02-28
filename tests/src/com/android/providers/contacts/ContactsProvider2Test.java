@@ -10420,7 +10420,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         long contactId2 = createContactWithData("Mime TestB",
                 new String[]{Email.CONTENT_ITEM_TYPE});
 
-        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts_data")
+        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts").appendPath(
+                        "mimes")
                 .appendQueryParameter("requested_mimetypes", Phone.CONTENT_ITEM_TYPE)
                 .build();
         Cursor cursor = mResolver.query(uri, new String[]{Contacts._ID}, null, null, null);
@@ -10442,7 +10443,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         long contactId4 = createContactWithData("Mime OR4",
                 new String[]{Phone.CONTENT_ITEM_TYPE, Email.CONTENT_ITEM_TYPE});
 
-        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts_data")
+        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts").appendPath(
+                        "mimes")
                 .appendQueryParameter("requested_mimetypes",
                         Phone.CONTENT_ITEM_TYPE + "," + Email.CONTENT_ITEM_TYPE)
                 .build();
@@ -10470,7 +10472,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 new String[]{Phone.CONTENT_ITEM_TYPE, Email.CONTENT_ITEM_TYPE});
         long contactId3 = createContactWithData("Mime AND3", new String[]{Email.CONTENT_ITEM_TYPE});
 
-        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts_data")
+        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts").appendPath(
+                        "mimes")
                 .appendQueryParameter("requested_mimetypes",
                         Phone.CONTENT_ITEM_TYPE + "," + Email.CONTENT_ITEM_TYPE)
                 .appendQueryParameter("match_all_mimetypes", "true")
@@ -10492,7 +10495,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     public void testContactsWithDataUri_NoMatch_OR() {
         mActor.addPermissions("android.permission.MANAGE_CONTACTS_PICKER_SESSION");
         createContactWithData("Mime NoMatchOR", new String[]{StructuredPostal.CONTENT_ITEM_TYPE});
-        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts_data")
+        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts").appendPath(
+                        "mimes")
                 .appendQueryParameter("requested_mimetypes",
                         Phone.CONTENT_ITEM_TYPE + "," + Email.CONTENT_ITEM_TYPE)
                 .build();
@@ -10506,7 +10510,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     public void testContactsWithDataUri_NoMatch_AND() {
         mActor.addPermissions("android.permission.MANAGE_CONTACTS_PICKER_SESSION");
         createContactWithData("Mime NoMatchAND", new String[]{Phone.CONTENT_ITEM_TYPE});
-        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts_data")
+        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts").appendPath(
+                        "mimes")
                 .appendQueryParameter("requested_mimetypes",
                         Phone.CONTENT_ITEM_TYPE + "," + Email.CONTENT_ITEM_TYPE)
                 .appendQueryParameter("match_all_mimetypes", "true")
@@ -10524,7 +10529,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
                 new String[]{Phone.CONTENT_ITEM_TYPE, Email.CONTENT_ITEM_TYPE});
         createContactWithData("Filter TestB", new String[]{Email.CONTENT_ITEM_TYPE});
 
-        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts_data").appendPath(
+        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts").appendPath(
+                        "mimes").appendPath(
                         "filter").appendPath("TestA")
                 .appendQueryParameter("requested_mimetypes", Phone.CONTENT_ITEM_TYPE)
                 .build();
@@ -10545,7 +10551,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         createContactWithData("Something Else",
                 new String[]{Phone.CONTENT_ITEM_TYPE, Email.CONTENT_ITEM_TYPE});
 
-        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts_data").appendPath(
+        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts").appendPath(
+                        "mimes").appendPath(
                         "filter").appendPath("Filter")
                 .appendQueryParameter("requested_mimetypes",
                         Phone.CONTENT_ITEM_TYPE + "," + Email.CONTENT_ITEM_TYPE)
@@ -10561,7 +10568,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     @Test
     @RequiresFlagsEnabled(android.content.flags.Flags.FLAG_ENABLE_SYSTEM_CONTACTS_PICKER)
     public void testContactsWithDataUri_noPermission_SecurityException() {
-        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts_data").build();
+        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts").appendPath(
+                "mimes").build();
         try {
             mResolver.query(uri, new String[]{Contacts._ID}, null, null, null);
             fail("Expected SecurityException when querying without MANAGE_CONTACTS_PICKER_SESSION");
@@ -10575,7 +10583,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     public void testContactsWithDataUri_flagDisabled_UnsupportedOperationException() {
         mActor.addPermissions("android.permission.MANAGE_CONTACTS_PICKER_SESSION");
 
-        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts_data").build();
+        Uri uri = ContactsContract.AUTHORITY_URI.buildUpon().appendPath("contacts").appendPath(
+                "mimes").build();
         try {
             mResolver.query(uri, new String[]{Contacts._ID}, null, null, null);
             fail("Expected UnsupportedOperationException when flag is disabled");
