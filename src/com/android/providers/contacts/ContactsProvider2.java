@@ -6851,6 +6851,10 @@ public class ContactsProvider2 extends AbstractContactsProvider
                     long contactId = Long.parseLong(pathSegments.get(3));
                     SQLiteQueryBuilder lookupQb = new SQLiteQueryBuilder();
                     setTablesAndProjectionMapForContacts(lookupQb, projection);
+                    if (canEnforceStrictSqlChecksForQueries()) {
+                        lookupQb.setStrictColumns(true);
+                        lookupQb.setStrictGrammar(true);
+                    }
 
                     Cursor c = queryWithContactIdAndLookupKey(lookupQb, db,
                             projection, selection, selectionArgs, sortOrder, groupBy, limit,
@@ -6862,6 +6866,10 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 }
 
                 setTablesAndProjectionMapForContacts(qb, projection);
+                if (canEnforceStrictSqlChecksForQueries()) {
+                    qb.setStrictColumns(true);
+                    qb.setStrictGrammar(true);
+                }
                 selectionArgs = insertSelectionArg(selectionArgs,
                         String.valueOf(lookupContactIdByLookupKey(db, lookupKey)));
                 qb.appendWhere(Contacts._ID + "=?");
@@ -7772,7 +7780,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                 final String usageType = uri.getQueryParameter(DataUsageFeedback.USAGE_TYPE);
                 final int typeInt = getDataUsageFeedbackType(usageType, USAGE_TYPE_ALL);
                 setTablesAndProjectionMapForData(qb, uri, projection, false, typeInt);
-                if (canEnforceStrictSqlChecksForDataQueries()) {
+                if (canEnforceStrictSqlChecksForQueries()) {
                     qb.setStrictColumns(true);
                     qb.setStrictGrammar(true);
                 }
@@ -7786,7 +7794,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
             case DATA_ID:
             case PROFILE_DATA_ID: {
                 setTablesAndProjectionMapForData(qb, uri, projection, false);
-                if (canEnforceStrictSqlChecksForDataQueries()) {
+                if (canEnforceStrictSqlChecksForQueries()) {
                     qb.setStrictColumns(true);
                     qb.setStrictGrammar(true);
                 }
@@ -11195,8 +11203,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
                     android.Manifest.permission.READ_COMPAT_CHANGE_CONFIG,
                     android.Manifest.permission.LOG_COMPAT_CHANGE
             })
-    // TODO(b/472490546): Enforce this check on other URIs as well.
-    private boolean canEnforceStrictSqlChecksForDataQueries() {
+    // TODO(b/484953293): Enforce this check on more URIs as well.
+    private boolean canEnforceStrictSqlChecksForQueries() {
         // Strict Sql checks can be enforced when either
         // 1. Call is forwarded from SessionsProvider
         // 2. The caller is another app (not cp2) not holding READ_CONTACTS + flag is enabled
