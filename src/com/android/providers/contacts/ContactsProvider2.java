@@ -89,6 +89,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.ParcelFileDescriptor.AutoCloseInputStream;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.StrictMode;
 import android.os.SystemClock;
@@ -205,6 +206,7 @@ import com.android.providers.contacts.util.LogFields;
 import com.android.providers.contacts.util.LogUtils;
 import com.android.providers.contacts.util.NeededForTesting;
 import com.android.providers.contacts.util.PccAwareUidComparator;
+import com.android.providers.contacts.util.PccUtils;
 import com.android.providers.contacts.util.UserUtils;
 import com.android.vcard.VCardComposer;
 import com.android.vcard.VCardConfig;
@@ -571,6 +573,28 @@ public class ContactsProvider2 extends AbstractContactsProvider
         int ACCOUNT_TYPE = 2;
         int ACCOUNT_NAME = 3;
         int DATA_SET = 4;
+    }
+
+    interface PccUidChecker {
+        boolean isPrivateComputeCoreUid(int uid);
+    }
+
+    private PccUidChecker mPccUidChecker = Process::isPrivateComputeCoreUid;
+
+    /**
+     * Sets a test-only {@link PccUidChecker} to mock the behavior of {@link
+     * android.os.Process#isPrivateComputeCoreUid(int)}.
+     *
+     * <p>This method is required because {@link android.os.Process#isPrivateComputeCoreUid(int)} is
+     * a static method, which cannot be directly mocked using standard Mockito. By injecting a mock
+     * {@link PccUidChecker}, tests can simulate scenarios where the calling UID is or is not a
+     * Private Compute Core UID, allowing for thorough testing of PCC-related validation logic.
+     *
+     * @param checker The {@link PccUidChecker} instance to use.
+     */
+    @VisibleForTesting
+    void setPccUidCheckerForTest(PccUidChecker checker) {
+        mPccUidChecker = checker;
     }
 
     private static final String DEFAULT_ACCOUNT_TYPE = "com.google";
@@ -3721,6 +3745,11 @@ public class ContactsProvider2 extends AbstractContactsProvider
             throw new IllegalArgumentException(Data.MIMETYPE + " is required");
         }
 
+        if (android.app.privatecompute.flags.Flags.enablePccFrameworkSupport()
+                && mPccUidChecker.isPrivateComputeCoreUid(Binder.getCallingUid())) {
+            PccUtils.validateDataWriteForPcc(mimeType);
+        }
+
         if (Phone.CONTENT_ITEM_TYPE.equals(mimeType)) {
             maybeTrimLongPhoneNumber(inputValues);
         }
@@ -5559,6 +5588,12 @@ public class ContactsProvider2 extends AbstractContactsProvider
         final SQLiteDatabase db = mDbHelper.get().getWritableDatabase();
 
         final String mimeType = c.getString(DataRowHandler.DataUpdateQuery.MIMETYPE);
+
+        if (android.app.privatecompute.flags.Flags.enablePccFrameworkSupport()
+                && mPccUidChecker.isPrivateComputeCoreUid(Binder.getCallingUid())) {
+            PccUtils.validateDataWriteForPcc(mimeType);
+        }
+
         if (Phone.CONTENT_ITEM_TYPE.equals(mimeType)) {
             maybeTrimLongPhoneNumber(values);
         }
