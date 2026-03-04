@@ -67,32 +67,26 @@ public class FakeContactsProvider extends ContentProvider {
         }
 
         MatrixCursor cursor = new MatrixCursor(projection);
-        if (selectionArgs == null || selectionArgs.length == 0) {
+        if (selection == null) {
             return cursor; // No IDs to filter by
         }
 
         Set<String> allowedIds = new HashSet<>();
         String targetMimeType = null;
 
-        // Parse the dataRowIds from the JSON array string in selectionArgs[0]
-        if (selectionArgs != null && selectionArgs.length > 0) {
-            String jsonArrayString = selectionArgs[0];
-            // Remove brackets and split by comma to get individual ID strings
-            String[] ids = jsonArrayString.replace("[", "").replace("]", "").split(",");
-            for (String id : ids) {
-                if (!id.trim().isEmpty()) {
-                    allowedIds.add(id.trim());
-                }
-            }
+        // Parse the dataRowIds from the selection string
+        // Extract everything between the brackets of "Data._ID + IN (...)"
+        int start = selection.indexOf(Data._ID + " IN (") + (Data._ID + " IN (").length();
+        int end = selection.indexOf(")", start);
+        String idLiteralList = selection.substring(start, end);
 
-            // Check for MIME type filter, which would be the last argument if present
-            if (selection != null && selection.contains(Data.MIMETYPE + " = ?")) {
-                targetMimeType = selectionArgs[selectionArgs.length - 1];
-            }
-        } else {
-            // If no selectionArgs are provided, no IDs are specified to filter by.
-            // In this mock, we return an empty cursor as a result.
-            return cursor;
+        for (String id : idLiteralList.split(",")) {
+            allowedIds.add(id.trim());
+        }
+
+        // Check for MIME type filter, which would be the last argument if present
+        if (selection.contains(Data.MIMETYPE + " = ?") && selectionArgs.length > 0) {
+            targetMimeType = selectionArgs[selectionArgs.length - 1];
         }
 
         for (ContentValues values : mData.values()) {

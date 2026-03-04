@@ -49,4 +49,12 @@ public class ChangeIds {
     @ChangeId
     @EnabledAfter(targetSdkVersion = Build.VERSION_CODES.BAKLAVA)
     public static final long REQUIRE_PERMISSIONS_FOR_DIRECTORY_QUERIES = 157720069L;
+
+    /**
+     * Enforces strict sql checks for callers accessing `com.android.contacts/data` uris without
+     * READ_CONTACTS permission, starting after {@link android.os.Build.VERSION_CODES#BAKLAVA}.
+     */
+    @ChangeId
+    @EnabledAfter(targetSdkVersion = Build.VERSION_CODES.BAKLAVA)
+    public static final long ENFORCE_STRICT_SQL_CHECKS = 484953293L;
 }
