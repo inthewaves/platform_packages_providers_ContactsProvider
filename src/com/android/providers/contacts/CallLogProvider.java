@@ -69,9 +69,9 @@ import com.android.providers.contacts.CallLogDatabaseHelper.DbProperties;
 import com.android.providers.contacts.CallLogDatabaseHelper.Tables;
 import com.android.providers.contacts.util.FileUtilities;
 import com.android.providers.contacts.util.NeededForTesting;
+import com.android.providers.contacts.util.PccAwareUidComparator;
 import com.android.providers.contacts.util.SelectionBuilder;
 import com.android.providers.contacts.util.UserUtils;
-import com.android.server.telecom.flags.Flags;
 
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
@@ -870,7 +870,8 @@ public class CallLogProvider extends ContentProvider {
     @Override
     public Bundle call(@NonNull String method, @Nullable String arg, @Nullable Bundle extras) {
         Log.i(TAG, "Fetching list of Uris to sync");
-        if (!UserHandle.isSameApp(android.os.Process.myUid(), Binder.getCallingUid())) {
+        if (!PccAwareUidComparator.isSameApp(
+                getContext(), android.os.Process.myUid(), Binder.getCallingUid())) {
             throw new SecurityException("call() functionality reserved"
                     + " for internal use by the call log.");
         }

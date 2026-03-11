@@ -204,9 +204,12 @@ import com.android.providers.contacts.util.DbQueryUtils;
 import com.android.providers.contacts.util.LogFields;
 import com.android.providers.contacts.util.LogUtils;
 import com.android.providers.contacts.util.NeededForTesting;
+import com.android.providers.contacts.util.PccAwareUidComparator;
 import com.android.providers.contacts.util.UserUtils;
 import com.android.vcard.VCardComposer;
 import com.android.vcard.VCardConfig;
+
+import libcore.io.IoUtils;
 
 import com.google.android.collect.Lists;
 import com.google.android.collect.Maps;
@@ -214,8 +217,6 @@ import com.google.android.collect.Sets;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
-
-import libcore.io.IoUtils;
 
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -989,38 +990,56 @@ public class ContactsProvider2 extends AbstractContactsProvider
             .build();
 
     /** Contains the data and contacts columns, for joined tables */
-    private static final ProjectionMap sPhoneLookupProjectionMap = ProjectionMap.builder()
-            .add(PhoneLookup._ID, "contacts_view." + Contacts._ID)
-            .add(PhoneLookup.CONTACT_ID, "contacts_view." + Contacts._ID)
-            .add(PhoneLookup.DATA_ID, PhoneLookup.DATA_ID)
-            .add(PhoneLookup.LOOKUP_KEY, "contacts_view." + Contacts.LOOKUP_KEY)
-            .add(PhoneLookup.DISPLAY_NAME_SOURCE, "contacts_view." + Contacts.DISPLAY_NAME_SOURCE)
-            .add(PhoneLookup.DISPLAY_NAME, "contacts_view." + Contacts.DISPLAY_NAME)
-            .add(PhoneLookup.DISPLAY_NAME_ALTERNATIVE,
-                    "contacts_view." + Contacts.DISPLAY_NAME_ALTERNATIVE)
-            .add(PhoneLookup.PHONETIC_NAME, "contacts_view." + Contacts.PHONETIC_NAME)
-            .add(PhoneLookup.PHONETIC_NAME_STYLE, "contacts_view." + Contacts.PHONETIC_NAME_STYLE)
-            .add(PhoneLookup.SORT_KEY_PRIMARY, "contacts_view." + Contacts.SORT_KEY_PRIMARY)
-            .add(PhoneLookup.SORT_KEY_ALTERNATIVE, "contacts_view." + Contacts.SORT_KEY_ALTERNATIVE)
-            .add(PhoneLookup.LR_LAST_TIME_CONTACTED, "contacts_view." + Contacts.LR_LAST_TIME_CONTACTED)
-            .add(PhoneLookup.LR_TIMES_CONTACTED, "contacts_view." + Contacts.LR_TIMES_CONTACTED)
-            .add(PhoneLookup.STARRED, "contacts_view." + Contacts.STARRED)
-            .add(PhoneLookup.IN_DEFAULT_DIRECTORY, "contacts_view." + Contacts.IN_DEFAULT_DIRECTORY)
-            .add(PhoneLookup.IN_VISIBLE_GROUP, "contacts_view." + Contacts.IN_VISIBLE_GROUP)
-            .add(PhoneLookup.PHOTO_ID, "contacts_view." + Contacts.PHOTO_ID)
-            .add(PhoneLookup.PHOTO_FILE_ID, "contacts_view." + Contacts.PHOTO_FILE_ID)
-            .add(PhoneLookup.PHOTO_URI, "contacts_view." + Contacts.PHOTO_URI)
-            .add(PhoneLookup.PHOTO_THUMBNAIL_URI, "contacts_view." + Contacts.PHOTO_THUMBNAIL_URI)
-            .add(PhoneLookup.CUSTOM_RINGTONE, "contacts_view." + Contacts.CUSTOM_RINGTONE)
-            .add(PhoneLookup.HAS_PHONE_NUMBER, "contacts_view." + Contacts.HAS_PHONE_NUMBER)
-            .add(PhoneLookup.SEND_TO_VOICEMAIL, "contacts_view." + Contacts.SEND_TO_VOICEMAIL)
-            .add(PhoneLookup.NUMBER, Phone.NUMBER)
-            .add(PhoneLookup.TYPE, Phone.TYPE)
-            .add(PhoneLookup.LABEL, Phone.LABEL)
-            .add(PhoneLookup.NORMALIZED_NUMBER, Phone.NORMALIZED_NUMBER)
-            .add(Data.PREFERRED_PHONE_ACCOUNT_COMPONENT_NAME)
-            .add(Data.PREFERRED_PHONE_ACCOUNT_ID)
-            .build();
+    private static final ProjectionMap sPhoneLookupProjectionMap =
+            ProjectionMap.builder()
+                    .add(PhoneLookup._ID, "contacts_view." + Contacts._ID)
+                    .add(PhoneLookup.CONTACT_ID, "contacts_view." + Contacts._ID)
+                    .add(PhoneLookup.DATA_ID, PhoneLookup.DATA_ID)
+                    .add(PhoneLookup.LOOKUP_KEY, "contacts_view." + Contacts.LOOKUP_KEY)
+                    .add(
+                            PhoneLookup.DISPLAY_NAME_SOURCE,
+                            "contacts_view." + Contacts.DISPLAY_NAME_SOURCE)
+                    .add(PhoneLookup.DISPLAY_NAME, "contacts_view." + Contacts.DISPLAY_NAME)
+                    .add(
+                            PhoneLookup.DISPLAY_NAME_ALTERNATIVE,
+                            "contacts_view." + Contacts.DISPLAY_NAME_ALTERNATIVE)
+                    .add(PhoneLookup.PHONETIC_NAME, "contacts_view." + Contacts.PHONETIC_NAME)
+                    .add(
+                            PhoneLookup.PHONETIC_NAME_STYLE,
+                            "contacts_view." + Contacts.PHONETIC_NAME_STYLE)
+                    .add(PhoneLookup.SORT_KEY_PRIMARY, "contacts_view." + Contacts.SORT_KEY_PRIMARY)
+                    .add(
+                            PhoneLookup.SORT_KEY_ALTERNATIVE,
+                            "contacts_view." + Contacts.SORT_KEY_ALTERNATIVE)
+                    .add(
+                            PhoneLookup.LR_LAST_TIME_CONTACTED,
+                            "contacts_view." + Contacts.LR_LAST_TIME_CONTACTED)
+                    .add(
+                            PhoneLookup.LR_TIMES_CONTACTED,
+                            "contacts_view." + Contacts.LR_TIMES_CONTACTED)
+                    .add(PhoneLookup.STARRED, "contacts_view." + Contacts.STARRED)
+                    .add(
+                            PhoneLookup.IN_DEFAULT_DIRECTORY,
+                            "contacts_view." + Contacts.IN_DEFAULT_DIRECTORY)
+                    .add(PhoneLookup.IN_VISIBLE_GROUP, "contacts_view." + Contacts.IN_VISIBLE_GROUP)
+                    .add(PhoneLookup.PHOTO_ID, "contacts_view." + Contacts.PHOTO_ID)
+                    .add(PhoneLookup.PHOTO_FILE_ID, "contacts_view." + Contacts.PHOTO_FILE_ID)
+                    .add(PhoneLookup.PHOTO_URI, "contacts_view." + Contacts.PHOTO_URI)
+                    .add(
+                            PhoneLookup.PHOTO_THUMBNAIL_URI,
+                            "contacts_view." + Contacts.PHOTO_THUMBNAIL_URI)
+                    .add(PhoneLookup.CUSTOM_RINGTONE, "contacts_view." + Contacts.CUSTOM_RINGTONE)
+                    .add(PhoneLookup.HAS_PHONE_NUMBER, "contacts_view." + Contacts.HAS_PHONE_NUMBER)
+                    .add(
+                            PhoneLookup.SEND_TO_VOICEMAIL,
+                            "contacts_view." + Contacts.SEND_TO_VOICEMAIL)
+                    .add(PhoneLookup.NUMBER, Phone.NUMBER)
+                    .add(PhoneLookup.TYPE, Phone.TYPE)
+                    .add(PhoneLookup.LABEL, Phone.LABEL)
+                    .add(PhoneLookup.NORMALIZED_NUMBER, Phone.NORMALIZED_NUMBER)
+                    .add(Data.PREFERRED_PHONE_ACCOUNT_COMPONENT_NAME)
+                    .add(Data.PREFERRED_PHONE_ACCOUNT_ID)
+                    .build();
 
     /** Contains the just the {@link Groups} columns */
     private static final ProjectionMap sGroupsProjectionMap = ProjectionMap.builder()
@@ -6413,7 +6432,8 @@ public class ContactsProvider2 extends AbstractContactsProvider
         // process.
         final int myUid = android.os.Process.myUid();
         final int callingUid = Binder.getCallingUid();
-        return (myUid != callingUid) && UserHandle.isSameApp(myUid, callingUid);
+        return (myUid != callingUid)
+                && PccAwareUidComparator.isSameApp(getContext(), myUid, callingUid);
     }
 
     private boolean doesCallerHoldInteractAcrossUserPermission() {
