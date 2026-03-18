@@ -268,7 +268,7 @@ public class ContactsPickerSessionProviderTest
         assertTrue(ids.contains(2L));
     }
 
-    public void testQuery_validSessionWithCallerSelection_returnsFilteredData() {
+    public void testQuery_validSessionWithCallerSelection_throwsException() {
         ContentValues sessionValues = createSessionValues("3,4", CALLER_UID);
         Uri sessionUri = mMockContentResolver.insert(Session.CONTENT_URI, sessionValues);
 
@@ -278,20 +278,16 @@ public class ContactsPickerSessionProviderTest
 
         String callerSelection = Data.MIMETYPE + " = ?";
         String[] callerArgs = {targetMimetype};
-        Cursor cursor =
-                mMockContentResolver.query(
-                        sessionUri,
-                        new String[] {Data._ID, Data.MIMETYPE},
-                        callerSelection,
-                        callerArgs,
-                        null);
 
-        assertNotNull(cursor);
-        assertEquals(1, cursor.getCount());
-        assertTrue(cursor.moveToFirst());
-        assertEquals(3, cursor.getLong(cursor.getColumnIndexOrThrow(Data._ID)));
-        assertEquals(targetMimetype, cursor.getString(cursor.getColumnIndexOrThrow(Data.MIMETYPE)));
-        cursor.close();
+        assertThrows(
+                UnsupportedOperationException.class,
+                () ->
+                        mMockContentResolver.query(
+                                sessionUri,
+                                new String[] {Data._ID, Data.MIMETYPE},
+                                callerSelection,
+                                callerArgs,
+                                null));
     }
 
     public void testQuery_multipleSessionsWithOverlappingData_returnsCorrectData() {
