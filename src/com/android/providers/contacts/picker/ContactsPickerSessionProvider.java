@@ -304,8 +304,15 @@ public class ContactsPickerSessionProvider extends ContentProvider {
                             + sessionUid);
         }
 
-        DataQuery dataQuery =
-                buildDataQuerySelection(sessionData.dataRowIds, selection, selectionArgs);
+        if (selection != null || selectionArgs != null) {
+            throw new UnsupportedOperationException(
+                    "Querying Session Uri with selection or selection arguments is not allowed.");
+        }
+
+        // The only way to add dataRowIds in sessions table is via the insert() method. The latter
+        // ensures that dataRowIds are non-empty and formatted correctly, so we don't do any further
+        // massaging on same here.
+        String dataSelection = Data._ID + " IN (" + sessionData.dataRowIds + ")";
 
         // Calling identity must be cleared to query ContactsContract.Data using this provider's
         // identity.
@@ -319,53 +326,33 @@ public class ContactsPickerSessionProvider extends ContentProvider {
         //    provider acts as a privileged proxy, fetching the data on the client's behalf only
         //    after verifying that the client owns this specific session.
         if (VERBOSE_LOGGING) {
-            Log.v(TAG, "query: uri=" + uri + "  projection=" + Arrays.toString(projection)
-                    + "  selection=[" + dataQuery.selection + "] "
-                    + "  args=" + Arrays.toString(dataQuery.selectionArgs)
-                    + "  order=[" + sortOrder + "] CPID=" + Binder.getCallingPid()
-                    + " CUID=" + Binder.getCallingUid()
-                    + " User=" + UserUtils.getCurrentUserHandle(getContext()));
+            Log.v(
+                    TAG,
+                    "query: uri="
+                            + uri
+                            + "  projection="
+                            + Arrays.toString(projection)
+                            + "  selection=["
+                            + dataSelection
+                            + "] "
+                            + "  args=null"
+                            + "  order=["
+                            + sortOrder
+                            + "] CPID="
+                            + Binder.getCallingPid()
+                            + " CUID="
+                            + Binder.getCallingUid()
+                            + " User="
+                            + UserUtils.getCurrentUserHandle(getContext()));
         }
         final long token = Binder.clearCallingIdentity();
         try {
             return getContext()
                     .getContentResolver()
-                    .query(
-                            Data.CONTENT_URI,
-                            projection,
-                            dataQuery.selection,
-                            dataQuery.selectionArgs,
-                            sortOrder);
+                    .query(Data.CONTENT_URI, projection, dataSelection, null, sortOrder);
         } finally {
             Binder.restoreCallingIdentity(token);
         }
-    }
-
-    private static class DataQuery {
-        final String selection;
-        final String[] selectionArgs;
-
-        DataQuery(String selection, String[] selectionArgs) {
-            this.selection = selection;
-            this.selectionArgs = selectionArgs;
-        }
-    }
-
-    private DataQuery buildDataQuerySelection(
-            String dataRowIds, String callerSelection, String[] callerSelectionArgs) {
-        // First add dataRowIds in the query.
-        // The only way to add dataRowIds in sessions table is via the insert() method. The latter
-        // ensures that dataRowIds are non-empty and formatted correctly, so we don't do any further
-        // massaging on same here.
-        StringBuilder sb = new StringBuilder();
-        sb.append(Data._ID).append(" IN (").append(dataRowIds).append(")");
-
-        // Add callerSelection, if present
-        if (!TextUtils.isEmpty(callerSelection)) {
-            sb.append(" AND (").append(callerSelection).append(")");
-        }
-
-        return new DataQuery(sb.toString(), callerSelectionArgs);
     }
 
     private void validateContentValues(ContentValues values) {
