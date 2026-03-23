@@ -19,6 +19,7 @@ package com.android.providers.contacts;
 import static com.android.providers.contacts.TestUtils.cv;
 import static com.android.providers.contacts.TestUtils.dumpCursor;
 
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.when;
 
@@ -53,6 +54,7 @@ import android.provider.ContactsContract.CommonDataKinds.Contactables;
 import android.provider.ContactsContract.CommonDataKinds.Email;
 import android.provider.ContactsContract.CommonDataKinds.GroupMembership;
 import android.provider.ContactsContract.CommonDataKinds.Im;
+import android.provider.ContactsContract.CommonDataKinds.Note;
 import android.provider.ContactsContract.CommonDataKinds.Organization;
 import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.provider.ContactsContract.CommonDataKinds.Photo;
@@ -113,6 +115,7 @@ import com.android.providers.contacts.testutil.DeletedContactUtil;
 import com.android.providers.contacts.testutil.RawContactUtil;
 import com.android.providers.contacts.testutil.TestUtil;
 import com.android.providers.contacts.util.NullContentProvider;
+import com.android.providers.contacts.util.PccUtils;
 import com.android.providers.contacts.util.PhoneAccountHandleMigrationUtils;
 import com.android.providers.contacts.util.UserUtils;
 
@@ -125,6 +128,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -172,6 +176,8 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
     private ContactsDatabaseHelper mDbHelper;
     private BroadcastReceiver mBroadcastReceiver;
 
+    @Mock private ContactsProvider2.PccUidChecker mMockPccUidChecker;
+
     @Before
     @Override
     public void setUp() throws Exception {
@@ -184,6 +190,7 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         PhoneNumberUtils.setMinMatchForTest(MIN_MATCH);
         mDbHelper.setMinMatchForTest(MIN_MATCH);
         assertNotNull(mDbHelper);
+        mContactsProvider2.setPccUidCheckerForTest(mMockPccUidChecker);
     }
 
     @After
@@ -10591,6 +10598,106 @@ public class ContactsProvider2Test extends BaseContactsProvider2Test {
         } catch (UnsupportedOperationException e) {
             // Expected behavior
         }
+    }
+
+    @Test
+    @RequiresFlagsEnabled(android.app.privatecompute.flags.Flags.FLAG_ENABLE_PCC_FRAMEWORK_SUPPORT)
+    public void testValidateDataWriteForPcc_noteMimeType_throwsSecurityException() {
+        String mimeType = Note.CONTENT_ITEM_TYPE;
+        Assert.assertThrows(
+                SecurityException.class,
+                () -> {
+                    PccUtils.validateDataWriteForPcc(mimeType);
+                });
+    }
+
+    @Test
+    @RequiresFlagsEnabled(android.app.privatecompute.flags.Flags.FLAG_ENABLE_PCC_FRAMEWORK_SUPPORT)
+    public void testInsertData_pccUid_noteMimeType_throwsSecurityException() {
+        when(mMockPccUidChecker.isPrivateComputeCoreUid(anyInt())).thenReturn(true);
+        long rawContactId = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe");
+
+        ContentValues noteValues = new ContentValues();
+        noteValues.put(Data.RAW_CONTACT_ID, rawContactId);
+        noteValues.put(Data.MIMETYPE, Note.CONTENT_ITEM_TYPE);
+        noteValues.put(Note.NOTE, "test note");
+
+        Assert.assertThrows(
+                SecurityException.class, () -> mResolver.insert(Data.CONTENT_URI, noteValues));
+    }
+
+    @Test
+    @RequiresFlagsEnabled(android.app.privatecompute.flags.Flags.FLAG_ENABLE_PCC_FRAMEWORK_SUPPORT)
+    public void testInsertData_pccUid_allowlistedMimeType_succeeds() {
+        when(mMockPccUidChecker.isPrivateComputeCoreUid(anyInt())).thenReturn(true);
+        long rawContactId = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe");
+
+        ContentValues emailValues = new ContentValues();
+        emailValues.put(Data.RAW_CONTACT_ID, rawContactId);
+        emailValues.put(Data.MIMETYPE, Email.CONTENT_ITEM_TYPE);
+        emailValues.put(Email.ADDRESS, "pcc@example.com");
+
+        Uri resultUri = mResolver.insert(Data.CONTENT_URI, emailValues);
+        Assert.assertNotNull(resultUri);
+    }
+
+    @Test
+    @RequiresFlagsEnabled(android.app.privatecompute.flags.Flags.FLAG_ENABLE_PCC_FRAMEWORK_SUPPORT)
+    public void testInsertData_pccUid_customMimeType_succeeds() {
+        when(mMockPccUidChecker.isPrivateComputeCoreUid(anyInt())).thenReturn(true);
+        long rawContactId = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe");
+
+        String nonAllowlistedMimeType = "vnd.android.cursor.item/com.example.custom.data";
+        ContentValues customValues = new ContentValues();
+        customValues.put(Data.RAW_CONTACT_ID, rawContactId);
+        customValues.put(Data.MIMETYPE, nonAllowlistedMimeType);
+        customValues.put(Data.DATA1, "Custom PCC Data");
+
+        Uri resultUri = mResolver.insert(Data.CONTENT_URI, customValues);
+        Assert.assertNotNull(resultUri);
+    }
+
+    @Test
+    @RequiresFlagsEnabled(android.app.privatecompute.flags.Flags.FLAG_ENABLE_PCC_FRAMEWORK_SUPPORT)
+    public void testUpdateData_pccUid_noteMimeType_throwsSecurityException() {
+        long rawContactId = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe");
+
+        when(mMockPccUidChecker.isPrivateComputeCoreUid(anyInt())).thenReturn(false);
+        ContentValues noteValues = new ContentValues();
+        noteValues.put(Data.RAW_CONTACT_ID, rawContactId);
+        noteValues.put(Data.MIMETYPE, Note.CONTENT_ITEM_TYPE);
+        noteValues.put(Note.NOTE, "Initial note");
+        Uri insertedNoteUri = mResolver.insert(Data.CONTENT_URI, noteValues);
+        Assert.assertNotNull(insertedNoteUri);
+
+        // Simulate a PCC UID trying to update the Note
+        when(mMockPccUidChecker.isPrivateComputeCoreUid(anyInt())).thenReturn(true);
+        ContentValues updateValues = new ContentValues();
+        updateValues.put(Note.NOTE, "Updated note by PCC");
+
+        Assert.assertThrows(
+                SecurityException.class,
+                () -> mResolver.update(insertedNoteUri, updateValues, null, null));
+    }
+
+    @Test
+    @RequiresFlagsEnabled(android.app.privatecompute.flags.Flags.FLAG_ENABLE_PCC_FRAMEWORK_SUPPORT)
+    public void testUpdateData_pccUid_allowlistedMimeType_succeeds() {
+        when(mMockPccUidChecker.isPrivateComputeCoreUid(anyInt())).thenReturn(true);
+        long rawContactId = RawContactUtil.createRawContactWithName(mResolver, "John", "Doe");
+
+        ContentValues emailValues = new ContentValues();
+        emailValues.put(Data.RAW_CONTACT_ID, rawContactId);
+        emailValues.put(Data.MIMETYPE, Email.CONTENT_ITEM_TYPE);
+        emailValues.put(Email.ADDRESS, "pcc@example.com");
+        Uri insertedEmailUri = mResolver.insert(Data.CONTENT_URI, emailValues);
+        Assert.assertNotNull(insertedEmailUri);
+
+        // Update the Email
+        ContentValues updateValues = new ContentValues();
+        updateValues.put(Email.ADDRESS, "updated_pcc@example.com");
+        int count = mResolver.update(insertedEmailUri, updateValues, null, null);
+        Assert.assertEquals(1, count);
     }
 
     private Uri getPreAuthorizedUri(Uri uri) {
