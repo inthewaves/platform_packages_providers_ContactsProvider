@@ -26,7 +26,6 @@ import static com.android.providers.contacts.flags.Flags.cp2SyncSearchIndexFlag;
 import static com.android.providers.contacts.flags.Flags.directoryProviderQueryPermissionCheck;
 import static com.android.providers.contacts.flags.Flags.disableCp2AccountMoveFlag;
 import static com.android.providers.contacts.flags.Flags.enforceStrictSqlChecks;
-import static com.android.providers.contacts.flags.Flags.insertAccountLogging;
 import static com.android.providers.contacts.flags.Flags.logCallMethod;
 import static com.android.providers.contacts.flags.Flags.restrictPiiDataUriColumns;
 import static com.android.providers.contacts.util.PhoneAccountHandleMigrationUtils.TELEPHONY_COMPONENT_NAME;
@@ -2534,9 +2533,7 @@ public class ContactsProvider2 extends AbstractContactsProvider
                         uri, ContactsContract.CALLER_IS_SYNCADAPTER, false))
                 .setStartNanos(SystemClock.elapsedRealtimeNanos())
                 .setUid(Binder.getCallingUid());
-        if (insertAccountLogging()) {
-            mLogFieldsBuilderHolder.set(logBuilder);
-        }
+        mLogFieldsBuilderHolder.set(logBuilder);
 
         Uri resultUri = null;
 
@@ -2564,12 +2561,12 @@ public class ContactsProvider2 extends AbstractContactsProvider
             logBuilder.setException(e);
             throw e;
         } finally {
-            if (insertAccountLogging()) {
-                logBuilder.detectCallerAccountTypeOwnership(getContext().getPackageManager(),
-                        AccountManager.get(getContext()).getAuthenticatorTypes())
-                        .detectAccountSyncMode(mSyncAdaptersSupplier.get());
-                mLogFieldsBuilderHolder.remove();
-            }
+            logBuilder
+                    .detectCallerAccountTypeOwnership(
+                            getContext().getPackageManager(),
+                            AccountManager.get(getContext()).getAuthenticatorTypes())
+                    .detectAccountSyncMode(mSyncAdaptersSupplier.get());
+            mLogFieldsBuilderHolder.remove();
             LogUtils.log(logBuilder.setResultUri(resultUri).setResultCount(
                     resultUri == null ? 0 : 1).build());
         }
@@ -4046,17 +4043,9 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
     private Uri insertSettings(Uri uri, ContentValues values) {
         final AccountWithDataSet account;
-        if (insertAccountLogging()) {
-            InsertAccountValidator.ValidationResultWithDetails validationResult =
-                    mAccountResolver.getAccountValidationResultForContactAddition(uri, values,
-                            false);
-            account = mAccountResolver.resolveAccountWithDataSet(validationResult, false, false);
-        } else {
-            account = mAccountResolver.resolveAccountWithDataSet(uri, values,
-                    /*applyDefaultAccount=*/false, /*shouldValidateAccountForContactAddition=*/
-                    false,
-                    false);
-        }
+        InsertAccountValidator.ValidationResultWithDetails validationResult =
+                mAccountResolver.getAccountValidationResultForContactAddition(uri, values, false);
+        account = mAccountResolver.resolveAccountWithDataSet(validationResult, false, false);
 
         // Note that the following check means the local account settings cannot be created with
         // an insert because resolveAccountWithDataSet returns null for it. However, the settings
@@ -5252,23 +5241,17 @@ public class ContactsProvider2 extends AbstractContactsProvider
 
                 if (isAccountChanging) {
                     if (isAccountRestrictionEnabled()) {
-                        if (insertAccountLogging()) {
-                            InsertAccountValidator.ValidationResultWithDetails validationResult =
-                                    mAccountResolver.getAccountValidationResultForContactAddition(
-                                            updatedAccountName, updatedAccountType, null,
-                                            isAppAllowedToSyncSimContacts());
-                            mAccountResolver.requireValidAccount(validationResult,
-                                    CompatChanges.isChangeEnabled(
-                                            ChangeIds.RESTRICT_CONTACTS_CREATION_IN_ACCOUNTS,
-                                            Binder.getCallingUid()));
-                        } else {
-                            mAccountResolver.validateAccountForContactAddition(updatedAccountName,
-                                    updatedAccountType,
-                                    CompatChanges.isChangeEnabled(
-                                            ChangeIds.RESTRICT_CONTACTS_CREATION_IN_ACCOUNTS,
-                                            Binder.getCallingUid()),
-                                    isAppAllowedToSyncSimContacts());
-                        }
+                        InsertAccountValidator.ValidationResultWithDetails validationResult =
+                                mAccountResolver.getAccountValidationResultForContactAddition(
+                                        updatedAccountName,
+                                        updatedAccountType,
+                                        null,
+                                        isAppAllowedToSyncSimContacts());
+                        mAccountResolver.requireValidAccount(
+                                validationResult,
+                                CompatChanges.isChangeEnabled(
+                                        ChangeIds.RESTRICT_CONTACTS_CREATION_IN_ACCOUNTS,
+                                        Binder.getCallingUid()));
                     }
 
                     final long accountId = dbHelper.getOrCreateAccountIdInTransaction(
@@ -11048,25 +11031,23 @@ public class ContactsProvider2 extends AbstractContactsProvider
                         Binder.getCallingUid());
 
         final AccountWithDataSet account;
-        if (insertAccountLogging()) {
-            InsertAccountValidator.ValidationResultWithDetails validationResult =
-                    mAccountResolver.getAccountValidationResultForContactAddition(uri, values,
-                            isAppAllowedToSyncSimContacts());
-            LogFields.Builder logBuilder = mLogFieldsBuilderHolder.get();
-            if (logBuilder != null) {
-                logBuilder.setAccountType(validationResult.getRequestedAccountType())
-                        .setDefaultAccountState(validationResult.getDefaultAccountState())
-                        .setSystemAccount(validationResult.isSystemAccount())
-                        .setLocalAccount(validationResult.isLocalAccount())
-                        .setSimAccount(validationResult.getMatchingSimAccount());
-            }
-            account = mAccountResolver.resolveAccountWithDataSet(validationResult,
-                    applyDefaultAccount, shouldValidateAccountForContactAddition);
-        } else {
-            account = mAccountResolver.resolveAccountWithDataSet(uri, values,
-                    applyDefaultAccount, shouldValidateAccountForContactAddition,
-                    isAppAllowedToSyncSimContacts());
+        InsertAccountValidator.ValidationResultWithDetails validationResult =
+                mAccountResolver.getAccountValidationResultForContactAddition(
+                        uri, values, isAppAllowedToSyncSimContacts());
+        LogFields.Builder logBuilder = mLogFieldsBuilderHolder.get();
+        if (logBuilder != null) {
+            logBuilder
+                    .setAccountType(validationResult.getRequestedAccountType())
+                    .setDefaultAccountState(validationResult.getDefaultAccountState())
+                    .setSystemAccount(validationResult.isSystemAccount())
+                    .setLocalAccount(validationResult.isLocalAccount())
+                    .setSimAccount(validationResult.getMatchingSimAccount());
         }
+        account =
+                mAccountResolver.resolveAccountWithDataSet(
+                        validationResult,
+                        applyDefaultAccount,
+                        shouldValidateAccountForContactAddition);
         final long id = mDbHelper.get().getOrCreateAccountIdInTransaction(account);
         values.put(RawContactsColumns.ACCOUNT_ID, id);
 
